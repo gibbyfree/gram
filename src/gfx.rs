@@ -10,7 +10,6 @@ pub struct GfxDriver {
 impl GfxDriver {
     pub fn new() -> Self {
         let size_rc = get_window_size();
-        print!("{:?}", size_rc);
         Self {
             rows: size_rc.0,
             cols: size_rc.1,
