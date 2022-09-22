@@ -1,7 +1,6 @@
 use crate::gfx::GfxDriver;
 use crate::input;
 
-#[derive(Debug)]
 pub struct Gram {
     gfx: GfxDriver,
 }
@@ -13,7 +12,7 @@ impl Gram {
         }
     }
 
-    pub fn tick(&self) {
+    pub fn tick(&mut self) {
         let (mut exit, mut err) = (1, 1);
 
         while exit != 0 && err != 0 {
@@ -21,6 +20,6 @@ impl Gram {
             exit = input::proc_key();
         }
 
-        print!("{}", termion::clear::All);
+        self.gfx.exit();
     }
 }
