@@ -53,15 +53,14 @@ impl RenderDriver {
     }
 
     pub(in crate::gfx) fn exit(&mut self) {
-        write!(self.buf, "{}", termion::clear::All).expect(WRITE_ERR_MSG);
+        write!(self.buf, "{}{}", termion::cursor::Goto(1, 1), termion::clear::All).expect(WRITE_ERR_MSG);
         self.buf.flush().unwrap();
     }
 
     pub(in crate::gfx) fn tick_screen(&mut self) -> Result<(), Error> {
         write!(self.buf, "{}", termion::cursor::Hide).expect(WRITE_ERR_MSG);
-        write!(self.buf, "{}", termion::cursor::Goto(self.cx + 1, self.cy + 1)).expect(WRITE_ERR_MSG);
         self.set_screen();
-        write!(self.buf, "{}{}", termion::cursor::Show, termion::cursor::Goto(self.cx + 1, self.cy + 1)).expect(WRITE_ERR_MSG); // maybe can delete second cursor goto
+        write!(self.buf, "{}{}", termion::cursor::Show, termion::cursor::Goto(self.cx + 1, self.cy + 1)).expect(WRITE_ERR_MSG); 
 
         self.buf.flush()
     }

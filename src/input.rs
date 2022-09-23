@@ -21,6 +21,8 @@ pub fn proc_key() -> Option<InputEvent> {
         Key::Right => return Some(InputEvent::Move(Direction::Right)),
         Key::PageUp => return Some(InputEvent::Page(Direction::Up)),
         Key::PageDown => return Some(InputEvent::Page(Direction::Down)),
+        Key::Home => return Some(InputEvent::Page(Direction::Left)),
+        Key::End => return Some(InputEvent::Page(Direction::Right)),
         _ => return None,
     };
 }

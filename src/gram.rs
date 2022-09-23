@@ -30,7 +30,7 @@ impl Gram {
             match evt {
                 Some(InputEvent::Quit) => break,
                 Some(InputEvent::Move(d)) => self.ctrl.queue_move(d),
-                Some(InputEvent::Page(d)) => (),
+                Some(InputEvent::Page(d)) => self.ctrl.queue_scroll(d),
                 None => (),
             }
         }

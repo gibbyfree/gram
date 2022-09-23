@@ -22,6 +22,16 @@ impl RenderController {
         }
     }
 
+    pub fn queue_scroll(&mut self, d: Direction) {
+        match d {
+            Direction::Up => self.render.set_cursor(false, 0),
+            Direction::Down => self.render.set_cursor(false, self.render.rows),
+            Direction::Left => self.render.set_cursor(true, 0),
+            Direction::Right => self.render.set_cursor(true, self.render.cols),
+            _ => (),
+        }
+    }
+
     pub fn exit(&mut self) {
         self.render.exit();
     }
