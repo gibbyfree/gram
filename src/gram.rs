@@ -1,3 +1,4 @@
+use crate::data::InputEvent;
 use crate::gfx::GfxDriver;
 use crate::input;
 
@@ -13,11 +14,19 @@ impl Gram {
     }
 
     pub fn tick(&mut self) {
-        let (mut exit, mut err) = (1, 1);
+        let mut err = 1;
+        let mut evt: Option<InputEvent>;
 
-        while exit != 0 && err != 0 {
+        while err != 0 {
             err = self.gfx.tick_screen();
-            exit = input::proc_key();
+            evt = input::proc_key();
+
+            match evt {
+                Some(InputEvent::Quit) => break,
+                Some(InputEvent::Move(d)) => self.gfx.queue_move(d),
+                Some(_) => (),
+                None => (),
+            }
         }
 
         self.gfx.exit();
