@@ -18,6 +18,8 @@ impl Gram {
         let mut err: Result<(), Error>;
         let mut evt: Option<InputEvent>;
 
+        self.ctrl.queue_text_upload();
+
         loop {
             err = self.ctrl.tick_screen();
             evt = input::proc_key();

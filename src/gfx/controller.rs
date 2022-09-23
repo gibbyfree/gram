@@ -1,4 +1,4 @@
-use crate::{gfx::render::RenderDriver, data::Direction};
+use crate::{gfx::render::RenderDriver, data::{Direction, TextRow}};
 use std::io::Error;
 
 pub struct RenderController {
@@ -30,6 +30,12 @@ impl RenderController {
             Direction::Right => self.render.set_cursor(true, self.render.cols),
             _ => (),
         }
+    }
+
+    pub fn queue_text_upload(&mut self) {
+        let test_str = String::from("Hello, world!");
+        let test_row = TextRow::new(test_str);
+        self.render.set_text(vec![test_row])
     }
 
     pub fn exit(&mut self) {

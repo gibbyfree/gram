@@ -1,6 +1,6 @@
 use std::io::{BufWriter, Stdout, Write, Error, stdout};
 use termion::raw::{IntoRawMode, RawTerminal};
-use crate::data::Direction;
+use crate::data::TextRow;
 
 pub struct RenderDriver {
     pub(in crate::gfx) rows: u16,
@@ -8,6 +8,7 @@ pub struct RenderDriver {
     pub(in crate::gfx) cx: u16,
     pub(in crate::gfx) cy: u16,
     buf: BufWriter<RawTerminal<Stdout>>,
+    text: Vec<TextRow>,
 }
 
 impl RenderDriver {
@@ -19,6 +20,7 @@ impl RenderDriver {
             cx: 0,
             cy: 0,
             buf: BufWriter::new(stdout().into_raw_mode().unwrap()),
+            text: vec![TextRow::default()],
         }
     }
 
@@ -36,12 +38,21 @@ impl RenderDriver {
     fn set_screen(&mut self) {
         for n in 1..self.rows - 1 {
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
-            if n == self.rows - 2 {
-                self.draw_welcome();
-            } else {
-                writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
+            if n >= self.text.len() as u16 {
+                if n == self.rows - 2 {
+                    self.draw_welcome();
+                } else {
+                    writeln!(self.buf, "{}\r", n).expect(WRITE_ERR_MSG);
+                }
+            }
+            else {
+                write!(self.buf, "{}\r\n", self.text[0]).expect(WRITE_ERR_MSG);
             }
         }
+    }
+
+    pub(in crate::gfx) fn set_text(&mut self, text: Vec<TextRow>) {
+        self.text = text;
     }
 
     pub(in crate::gfx) fn set_cursor(&mut self, x: bool, val: u16) {
