@@ -1,16 +1,16 @@
-use std::io::{BufWriter, Stdout, Write, stdout};
+use std::io::{BufWriter, Stdout, Write, Error, stdout};
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::data::Direction;
 
-pub struct GfxDriver {
-    rows: u16,
-    cols: u16,
-    cx: u16,
-    cy: u16,
+pub struct RenderDriver {
+    pub(in crate::gfx) rows: u16,
+    pub(in crate::gfx) cols: u16,
+    pub(in crate::gfx) cx: u16,
+    pub(in crate::gfx) cy: u16,
     buf: BufWriter<RawTerminal<Stdout>>,
 }
 
-impl GfxDriver {
+impl RenderDriver {
     pub fn new() -> Self {
         let size_rc = get_window_size();
         Self {
@@ -31,7 +31,6 @@ impl GfxDriver {
             padding = padding - 1;
         }
         write!(self.buf, "Gram editor -- v{}\r\n", VERSION).expect(WRITE_ERR_MSG);
-        self.buf.flush().unwrap();
     }
 
     fn set_screen(&mut self) {
@@ -43,35 +42,28 @@ impl GfxDriver {
                 writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }
         }
-        self.buf.flush().unwrap();
     }
 
-    pub fn queue_move(&mut self, d: Direction) {
-        match d {
-            Direction::Down if self.cy != self.rows - 1 => self.cy = self.cy + 1,
-            Direction::Up if self.cy != 0 => self.cy = self.cy - 1,
-            Direction::Left if self.cx != 0 => self.cx = self.cx - 1,
-            Direction::Right if self.cx != self.cols - 1 => self.cx = self.cx + 1,
-            _ => (),
+    pub(in crate::gfx) fn set_cursor(&mut self, x: bool, val: u16) {
+        if x {
+            self.cx = val;
+        } else {
+            self.cy = val;
         }
     }
 
-    pub fn exit(&mut self) {
+    pub(in crate::gfx) fn exit(&mut self) {
         write!(self.buf, "{}", termion::clear::All).expect(WRITE_ERR_MSG);
         self.buf.flush().unwrap();
     }
 
-    pub fn tick_screen(&mut self) -> u8 {
+    pub(in crate::gfx) fn tick_screen(&mut self) -> Result<(), Error> {
         write!(self.buf, "{}", termion::cursor::Hide).expect(WRITE_ERR_MSG);
         write!(self.buf, "{}", termion::cursor::Goto(self.cx + 1, self.cy + 1)).expect(WRITE_ERR_MSG);
         self.set_screen();
         write!(self.buf, "{}{}", termion::cursor::Show, termion::cursor::Goto(self.cx + 1, self.cy + 1)).expect(WRITE_ERR_MSG); // maybe can delete second cursor goto
 
-        let res = self.buf.flush();
-        match res {
-            Ok(_) => return 1,
-            Err(_) => return 0,
-        };
+        self.buf.flush()
     }
 }
 

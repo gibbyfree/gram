@@ -1,34 +1,40 @@
+use std::io::Error;
 use crate::data::InputEvent;
-use crate::gfx::GfxDriver;
+use crate::gfx::controller::RenderController;
 use crate::input;
 
 pub struct Gram {
-    gfx: GfxDriver,
+    ctrl: RenderController,
 }
 
 impl Gram {
     pub fn new() -> Self {
         Self {
-            gfx: GfxDriver::new(),
+            ctrl: RenderController::new(),
         }
     }
 
     pub fn tick(&mut self) {
-        let mut err = 1;
+        let mut err: Result<(), Error>;
         let mut evt: Option<InputEvent>;
 
-        while err != 0 {
-            err = self.gfx.tick_screen();
+        loop {
+            err = self.ctrl.tick_screen();
             evt = input::proc_key();
+
+            match err {
+                Err(_) => break,
+                Ok(_) => (),
+            }
 
             match evt {
                 Some(InputEvent::Quit) => break,
-                Some(InputEvent::Move(d)) => self.gfx.queue_move(d),
-                Some(_) => (),
+                Some(InputEvent::Move(d)) => self.ctrl.queue_move(d),
+                Some(InputEvent::Page(d)) => (),
                 None => (),
             }
         }
 
-        self.gfx.exit();
+        self.ctrl.exit();
     }
 }
