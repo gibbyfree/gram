@@ -39,11 +39,11 @@ impl RenderDriver {
     }
 
     fn set_screen(&mut self) {
-        for n in 1..self.rows - 2 {
+        for n in 0..self.rows - 2 {
             // clear the current line
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
             // render text if necessary, else render border
-            if n <= self.text.len() as u16 {
+            if n < self.text.len() as u16 {
                 write!(self.buf, "{}\r\n", self.text[0]).expect(WRITE_ERR_MSG);
             } else {
                 write!(self.buf, "~\r\n",).expect(WRITE_ERR_MSG);
