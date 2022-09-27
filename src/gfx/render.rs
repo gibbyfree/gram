@@ -1,5 +1,6 @@
 use std::io::{BufWriter, Stdout, Write, Error, stdout};
 use termion::raw::{IntoRawMode, RawTerminal};
+use termsize::Size;
 use crate::data::TextRow;
 
 pub struct RenderDriver {
@@ -14,41 +15,41 @@ pub struct RenderDriver {
 impl RenderDriver {
     pub fn new() -> Self {
         let size_rc = get_window_size();
-        Self {
-            rows: size_rc.0,
-            cols: size_rc.1,
+        let mut s = Self {
+            rows: size_rc.rows,
+            cols: size_rc.cols,
             cx: 0,
             cy: 0,
             buf: BufWriter::new(stdout().into_raw_mode().unwrap()),
             text: vec![TextRow::default()],
-        }
+        };
+        s.tick_screen().unwrap();
+        s
     }
 
-    fn draw_welcome(&mut self) {
-        let welcome = format!("Gram editor -- v{}\r", VERSION);
+    fn draw_footer(&mut self) {
+        let welcome = format!("Gram editor -- v{}\r\n", VERSION);
         let mut padding = (self.cols - welcome.len() as u16) / 2;
         write!(self.buf, "~").expect(WRITE_ERR_MSG);
         while padding > 0 {
             write!(self.buf, " ").expect(WRITE_ERR_MSG);
             padding = padding - 1;
         }
-        write!(self.buf, "Gram editor -- v{}\r\n", VERSION).expect(WRITE_ERR_MSG);
+        write!(self.buf, "{}", welcome).expect(WRITE_ERR_MSG);
     }
 
     fn set_screen(&mut self) {
-        for n in 1..self.rows - 1 {
+        for n in 1..self.rows - 2 {
+            // clear the current line
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
-            if n >= self.text.len() as u16 {
-                if n == self.rows - 2 {
-                    self.draw_welcome();
-                } else {
-                    writeln!(self.buf, "{}\r", n).expect(WRITE_ERR_MSG);
-                }
-            }
-            else {
+            // render text if necessary, else render border
+            if n <= self.text.len() as u16 {
                 write!(self.buf, "{}\r\n", self.text[0]).expect(WRITE_ERR_MSG);
+            } else {
+                write!(self.buf, "~\r\n",).expect(WRITE_ERR_MSG);
             }
         }
+        self.draw_footer();
     }
 
     pub(in crate::gfx) fn set_text(&mut self, text: Vec<TextRow>) {
@@ -77,8 +78,8 @@ impl RenderDriver {
     }
 }
 
-fn get_window_size() -> (u16, u16) {
-    termion::terminal_size().unwrap()
+fn get_window_size() -> Size {
+    termsize::get().unwrap()
 }
 
 const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
