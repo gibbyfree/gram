@@ -1,3 +1,4 @@
+use std::env::args;
 use std::io::Error;
 use crate::data::InputEvent;
 use crate::gfx::controller::RenderController;
@@ -18,7 +19,11 @@ impl Gram {
         let mut err: Result<(), Error>;
         let mut evt: Option<InputEvent>;
 
-        self.ctrl.queue_text_upload();
+        let file_name = args().nth(1);
+        match file_name {
+            None => (),
+            Some(str) => self.ctrl.read_file(&str),
+        };
 
         loop {
             err = self.ctrl.tick_screen();

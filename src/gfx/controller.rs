@@ -1,5 +1,5 @@
 use crate::{gfx::render::RenderDriver, data::{Direction, TextRow}};
-use std::io::Error;
+use std::{io::{Error, BufReader, BufRead}, fs::File};
 
 pub struct RenderController {
     render: RenderDriver,
@@ -32,10 +32,25 @@ impl RenderController {
         }
     }
 
-    pub fn queue_text_upload(&mut self) {
-        let test_str = String::from("Hello, world!");
-        let test_row = TextRow::new(test_str);
-        self.render.set_text(vec![test_row])
+    pub fn read_file(&mut self, s: &str) {
+        let file = File::open(s).expect("File not found at the given location.");
+        let buf = BufReader::new(file);
+
+        let mut vec: Vec<String> = Vec::new();
+        for line in buf.lines() {
+            vec.push(line.unwrap());
+        }
+        self.queue_text_upload(&vec);
+    }
+
+    pub fn queue_text_upload(&mut self, vec: &Vec<String>) {
+        let mut output: Vec<TextRow> = Vec::new();
+        for text in vec {
+            let str = String::from(text.trim());
+            let row = TextRow::new(str);
+            output.push(row);
+        }
+        self.render.set_text(output)
     }
 
     pub fn exit(&mut self) {
