@@ -15,16 +15,14 @@ pub struct RenderDriver {
 impl RenderDriver {
     pub fn new() -> Self {
         let size_rc = get_window_size();
-        let mut s = Self {
+        Self {
             rows: size_rc.rows,
             cols: size_rc.cols,
             cx: 0,
             cy: 0,
             buf: BufWriter::new(stdout().into_raw_mode().unwrap()),
             text: vec![TextRow::default()],
-        };
-        s.tick_screen().unwrap();
-        s
+        }
     }
 
     fn draw_footer(&mut self) {
@@ -44,9 +42,9 @@ impl RenderDriver {
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
             // render text if necessary, else render border
             if n < self.text.len() as u16 {
-                write!(self.buf, "{}\r\n", self.text[0]).expect(WRITE_ERR_MSG);
+                writeln!(self.buf, "{}\r", self.text[0]).expect(WRITE_ERR_MSG);
             } else {
-                write!(self.buf, "~\r\n",).expect(WRITE_ERR_MSG);
+                writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }
         }
         self.draw_footer();
@@ -70,9 +68,9 @@ impl RenderDriver {
     }
 
     pub(in crate::gfx) fn tick_screen(&mut self) -> Result<(), Error> {
-        write!(self.buf, "{}", termion::cursor::Hide).expect(WRITE_ERR_MSG);
+        write!(self.buf, "{}{}", termion::cursor::Goto(1, 1), termion::cursor::Hide).expect(WRITE_ERR_MSG);
         self.set_screen();
-        write!(self.buf, "{}{}", termion::cursor::Show, termion::cursor::Goto(self.cx + 1, self.cy + 1)).expect(WRITE_ERR_MSG); 
+        write!(self.buf, "{}{}", termion::cursor::Goto(self.cx + 1, self.cy + 1), termion::cursor::Show).expect(WRITE_ERR_MSG); 
 
         self.buf.flush()
     }
