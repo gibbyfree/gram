@@ -42,7 +42,7 @@ impl RenderDriver {
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
             // render text if necessary, else render border
             if n < self.text.len() as u16 {
-                writeln!(self.buf, "{}\r", self.text[n as usize]).expect(WRITE_ERR_MSG);
+                writeln!(self.buf, "{}\r", self.text[n as usize].truncate(self.cols)).expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }

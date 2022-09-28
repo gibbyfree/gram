@@ -13,6 +13,7 @@ pub enum Direction {
     Right,
 }
 
+// TextRow 
 #[derive(Default)]
 pub struct TextRow {
     text: String,
@@ -23,6 +24,11 @@ impl TextRow {
         Self {
             text
         }
+    }
+
+    pub fn truncate(&mut self, l: u16) -> &mut TextRow {
+        self.text.truncate(l.into());
+        self
     }
 }
 
