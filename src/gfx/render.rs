@@ -6,10 +6,11 @@ use crate::data::TextRow;
 pub struct RenderDriver {
     pub(in crate::gfx) rows: u16,
     pub(in crate::gfx) cols: u16,
-    pub(in crate::gfx) cx: u16,
-    pub(in crate::gfx) cy: u16,
+    pub(in crate::gfx) cx: i16,
+    pub(in crate::gfx) cy: i16,
     buf: BufWriter<RawTerminal<Stdout>>,
     text: Vec<TextRow>,
+    row_offset: i16,
 }
 
 impl RenderDriver {
@@ -20,6 +21,7 @@ impl RenderDriver {
             cols: size_rc.cols,
             cx: 0,
             cy: 0,
+            row_offset: 0,
             buf: BufWriter::new(stdout().into_raw_mode().unwrap()),
             text: vec![TextRow::default()],
         }
@@ -40,9 +42,10 @@ impl RenderDriver {
         for n in 0..self.rows - 2 {
             // clear the current line
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
+            let row_idx = n.wrapping_add(self.row_offset as u16);
             // render text if necessary, else render border
-            if n < self.text.len() as u16 {
-                writeln!(self.buf, "{}\r", self.text[n as usize].truncate(self.cols)).expect(WRITE_ERR_MSG);
+            if row_idx < self.text.len() as u16 {
+                writeln!(self.buf, "{}\r", self.text[row_idx as usize].truncate(self.cols)).expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }
@@ -50,15 +53,27 @@ impl RenderDriver {
         self.draw_footer();
     }
 
+    fn handle_y_move(&mut self, val: i16) {
+        if val == -1 && self.row_offset > 0 {
+            self.row_offset = self.row_offset - 1;
+        }
+        if val == (self.rows + 1).try_into().unwrap() && (self.row_offset + self.cy) < self.text.len().try_into().unwrap() {
+            self.row_offset = self.row_offset + 1;
+        }
+        if val != -1 && val != (self.rows + 1).try_into().unwrap() {
+            self.cy = val;
+        }
+    }
+
     pub(in crate::gfx) fn set_text(&mut self, text: Vec<TextRow>) {
         self.text = text;
     }
 
-    pub(in crate::gfx) fn set_cursor(&mut self, x: bool, val: u16) {
+    pub(in crate::gfx) fn set_cursor(&mut self, x: bool, val: i16) {
         if x {
             self.cx = val;
         } else {
-            self.cy = val;
+            self.handle_y_move(val);
         }
     }
 
@@ -70,7 +85,7 @@ impl RenderDriver {
     pub(in crate::gfx) fn tick_screen(&mut self) -> Result<(), Error> {
         write!(self.buf, "{}{}", termion::cursor::Goto(1, 1), termion::cursor::Hide).expect(WRITE_ERR_MSG);
         self.set_screen();
-        write!(self.buf, "{}{}", termion::cursor::Goto(self.cx + 1, self.cy + 1), termion::cursor::Show).expect(WRITE_ERR_MSG); 
+        write!(self.buf, "{}{}", termion::cursor::Goto((self.cx + 1).try_into().unwrap(), (self.cy + 1).try_into().unwrap()), termion::cursor::Show).expect(WRITE_ERR_MSG); 
 
         self.buf.flush()
     }

@@ -14,10 +14,10 @@ impl RenderController {
 
     pub fn queue_move(&mut self, d: Direction) {
         match d {
-            Direction::Down if self.render.cy != self.render.rows - 1 => self.render.set_cursor(false, self.render.cy + 1),
-            Direction::Up if self.render.cy != 0 => self.render.set_cursor(false, self.render.cy - 1),
+            Direction::Down => self.render.set_cursor(false, self.render.cy + 1),
+            Direction::Up => self.render.set_cursor(false, self.render.cy - 1),
             Direction::Left if self.render.cx != 0 => self.render.set_cursor(true, self.render.cx - 1),
-            Direction::Right if self.render.cx != self.render.cols - 1 => self.render.set_cursor(true, self.render.cx + 1),
+            Direction::Right if self.render.cx != (self.render.cols - 1).try_into().unwrap() => self.render.set_cursor(true, self.render.cx + 1),
             _ => (),
         }
     }
@@ -25,9 +25,9 @@ impl RenderController {
     pub fn queue_scroll(&mut self, d: Direction) {
         match d {
             Direction::Up => self.render.set_cursor(false, 0),
-            Direction::Down => self.render.set_cursor(false, self.render.rows),
+            Direction::Down => self.render.set_cursor(false, self.render.rows.try_into().unwrap()),
             Direction::Left => self.render.set_cursor(true, 0),
-            Direction::Right => self.render.set_cursor(true, self.render.cols),
+            Direction::Right => self.render.set_cursor(true, self.render.cols.try_into().unwrap()),
             _ => (),
         }
     }
