@@ -28,7 +28,7 @@ impl RenderDriver {
     }
 
     fn draw_footer(&mut self) {
-        let welcome = format!("Gram editor -- v{}\r\n", VERSION);
+        let welcome = format!("Gram editor -- v{}\r", VERSION);
         let mut padding = (self.cols - welcome.len() as u16) / 2;
         write!(self.buf, "~").expect(WRITE_ERR_MSG);
         while padding > 0 {
@@ -39,11 +39,11 @@ impl RenderDriver {
     }
 
     fn set_screen(&mut self) {
-        for n in 0..self.rows - 2 {
+        for n in 0..self.rows - 1 {
             // clear the current line
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
             let row_idx = n.wrapping_add(self.row_offset as u16);
-            // render text if necessary, else render border
+            // render text if necessary, else render edge
             if row_idx < self.text.len() as u16 {
                 writeln!(self.buf, "{}\r", self.text[row_idx as usize].truncate(self.cols)).expect(WRITE_ERR_MSG);
             } else {
@@ -57,10 +57,10 @@ impl RenderDriver {
         if val == -1 && self.row_offset > 0 {
             self.row_offset = self.row_offset - 1;
         }
-        if val == (self.rows + 1).try_into().unwrap() && (self.row_offset + self.cy) < self.text.len().try_into().unwrap() {
+        if val == (self.rows - 1).try_into().unwrap() && (self.row_offset + self.cy - 1) < self.text.len().try_into().unwrap() {
             self.row_offset = self.row_offset + 1;
         }
-        if val != -1 && val != (self.rows + 1).try_into().unwrap() {
+        if val != -1 && val != (self.rows - 1).try_into().unwrap() {
             self.cy = val;
         }
     }
