@@ -4,7 +4,7 @@ mod data;
 
 use std::env::args;
 use std::io::Error;
-use crate::data::InputEvent;
+use crate::data::enums::InputEvent;
 use crate::gfx::controller::RenderController;
 
 fn main() {

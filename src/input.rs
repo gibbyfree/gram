@@ -1,7 +1,7 @@
 use std::io::stdin;
 use termion::event::Key;
 use termion::input::TermRead;
-use crate::data::{InputEvent, Direction};
+use crate::data::enums::{InputEvent, Direction};
 
 fn read_key() -> Key {
     if let Some(b) = stdin().keys().next() {

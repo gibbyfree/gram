@@ -1,7 +1,7 @@
 use std::io::{BufWriter, Stdout, Write, Error, stdout};
 use termion::raw::{IntoRawMode, RawTerminal};
 use termsize::Size;
-use crate::data::TextRow;
+use crate::data::textrow::TextRow;
 
 pub struct RenderDriver {
     pub(in crate::gfx) rows: u16,
@@ -11,6 +11,7 @@ pub struct RenderDriver {
     buf: BufWriter<RawTerminal<Stdout>>,
     text: Vec<TextRow>,
     row_offset: i16,
+    col_offset: i16,
 }
 
 impl RenderDriver {
@@ -22,6 +23,7 @@ impl RenderDriver {
             cx: 0,
             cy: 0,
             row_offset: 0,
+            col_offset: 0,
             buf: BufWriter::new(stdout().into_raw_mode().unwrap()),
             text: vec![TextRow::default()],
         }
@@ -45,7 +47,8 @@ impl RenderDriver {
             let row_idx = n.wrapping_add(self.row_offset as u16);
             // render text if necessary, else render edge
             if row_idx < self.text.len() as u16 {
-                writeln!(self.buf, "{}\r", self.text[row_idx as usize].truncate(self.cols)).expect(WRITE_ERR_MSG);
+                let render_str = self.text[row_idx as usize].substring(self.col_offset);
+                writeln!(self.buf, "{}\r", render_str.truncate(self.cols)).expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }
@@ -65,13 +68,25 @@ impl RenderDriver {
         }
     }
 
+    fn handle_x_move(&mut self, val: i16) {
+        if val == -1 && self.col_offset > 0 {
+            self.col_offset = self.col_offset - 1;
+        }
+        if val == (self.cols - 1).try_into().unwrap() && self.text[self.cy as usize].has_more(self.col_offset, self.cols - 1) {
+            self.col_offset = self.col_offset + 1;
+        }
+        if val != -1 && val != (self.cols - 1).try_into().unwrap() {
+            self.cx = val;
+        }
+    }
+
     pub(in crate::gfx) fn set_text(&mut self, text: Vec<TextRow>) {
         self.text = text;
     }
 
     pub(in crate::gfx) fn set_cursor(&mut self, x: bool, val: i16) {
         if x {
-            self.cx = val;
+            self.handle_x_move(val);
         } else {
             self.handle_y_move(val);
         }

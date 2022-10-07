@@ -1,4 +1,4 @@
-use crate::{gfx::render::RenderDriver, data::{Direction, TextRow}};
+use crate::{gfx::render::RenderDriver, data::{enums::Direction, textrow::TextRow}};
 use std::{io::{Error, BufReader, BufRead}, fs::File};
 
 pub struct RenderController {
@@ -16,8 +16,8 @@ impl RenderController {
         match d {
             Direction::Down => self.render.set_cursor(false, self.render.cy + 1),
             Direction::Up => self.render.set_cursor(false, self.render.cy - 1),
-            Direction::Left if self.render.cx != 0 => self.render.set_cursor(true, self.render.cx - 1),
-            Direction::Right if self.render.cx != (self.render.cols - 1).try_into().unwrap() => self.render.set_cursor(true, self.render.cx + 1),
+            Direction::Left => self.render.set_cursor(true, self.render.cx - 1),
+            Direction::Right => self.render.set_cursor(true, self.render.cx + 1),
             _ => (),
         }
     }
