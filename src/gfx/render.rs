@@ -72,7 +72,7 @@ impl RenderDriver {
         if val == -1 && self.col_offset > 0 {
             self.col_offset = self.col_offset - 1;
         }
-        if val == (self.cols - 1).try_into().unwrap() && self.text[self.cy as usize].has_more(self.col_offset, self.cols - 1) {
+        if val == (self.cols - 1).try_into().unwrap() && self.text[self.cy as usize].length() + 1 >= val + self.col_offset {
             self.col_offset = self.col_offset + 1;
         }
         if val != -1 && val != (self.cols - 1).try_into().unwrap() {

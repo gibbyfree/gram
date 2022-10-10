@@ -1,4 +1,5 @@
 use std::fmt;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Default)]
 pub struct TextRow {
@@ -26,9 +27,8 @@ impl TextRow {
         self
     }
 
-    pub fn has_more(&mut self, start: i16, cap: u16) -> bool {
-        let maybe_later = self.substring(start);
-        return maybe_later.text.len() > cap.into();
+    pub fn length(&self) -> i16 {
+        self.raw_text.graphemes(true).count().try_into().unwrap()
     }
 }
 
