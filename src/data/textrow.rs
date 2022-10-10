@@ -28,7 +28,7 @@ impl TextRow {
     }
 
     pub fn length(&self) -> i16 {
-        self.raw_text.graphemes(true).count().try_into().unwrap()
+        (self.raw_text.graphemes(true).count() as i16) + 1
     }
 }
 

@@ -60,11 +60,16 @@ impl RenderDriver {
         if val == -1 && self.row_offset > 0 {
             self.row_offset = self.row_offset - 1;
         }
-        if val == (self.rows - 1).try_into().unwrap() && (self.row_offset + self.cy - 1) < self.text.len().try_into().unwrap() {
+        if val == (self.rows - 1).try_into().unwrap() && (self.row_offset + self.cy) < self.text.len().try_into().unwrap() {
             self.row_offset = self.row_offset + 1;
         }
         if val != -1 && val != (self.rows - 1).try_into().unwrap() {
             self.cy = val;
+        }
+
+        // correct cx if we just skipped to a shorter line
+        if self.cy + 1 <= self.text.len().try_into().unwrap() && self.cx > self.text[self.cy as usize].length() {
+            self.cx = self.text[self.cy as usize].length()
         }
     }
 
@@ -72,7 +77,7 @@ impl RenderDriver {
         if val == -1 && self.col_offset > 0 {
             self.col_offset = self.col_offset - 1;
         }
-        if val == (self.cols - 1).try_into().unwrap() && self.text[self.cy as usize].length() + 1 >= val + self.col_offset {
+        if val == (self.cols - 1).try_into().unwrap() && self.text[self.cy as usize].length() >= val + self.col_offset {
             self.col_offset = self.col_offset + 1;
         }
         if val != -1 && val != (self.cols - 1).try_into().unwrap() {
