@@ -1,6 +1,7 @@
 mod gfx;
 mod input;
 mod data;
+mod utils;
 
 use std::env::args;
 use std::io::Error;
