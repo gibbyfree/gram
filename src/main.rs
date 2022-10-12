@@ -8,11 +8,13 @@ use std::io::Error;
 use crate::data::enums::InputEvent;
 use crate::gfx::controller::RenderController;
 
+// Driver function.
 fn main() {
     let mut editor = Gram::new();
     editor.tick();
 }
 
+// Represents an initialized editor. Only contains a controller.
 pub struct Gram {
     ctrl: RenderController,
 }
@@ -24,6 +26,9 @@ impl Gram {
         }
     }
 
+    // Main function.
+    // Read file contents if a path is provided.
+    // Until the program exits, enter a loop of ticking the screen and processing key inputs. Any key events will be passed to the controller.
     pub fn tick(&mut self) {
         let mut err: Result<(), Error>;
         let mut evt: Option<InputEvent>;

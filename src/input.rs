@@ -3,6 +3,9 @@ use termion::event::Key;
 use termion::input::TermRead;
 use crate::data::enums::{InputEvent, Direction};
 
+// Functions for reading and processing key inputs.
+
+// Read a key and return its Key value. If there is no keypress on this tick, return a Null keypress.
 fn read_key() -> Key {
     if let Some(b) = stdin().keys().next() {
         return b.unwrap();
@@ -10,6 +13,8 @@ fn read_key() -> Key {
     Key::Null
 }
 
+// Process a read key into various InputEvents.
+// If the key does not match a known InputEvent, nothing happens.
 pub fn proc_key() -> Option<InputEvent> {
     let k = read_key();
 
