@@ -86,6 +86,7 @@ impl CursorHandler {
     //
     // IF the value is less than 1 (we are trying to go off-screen to the left) AND there is col offset (we are off-screen to the right)
     // THEN: decrement row offset (move us back toward the beginning of the line)
+    // IF the value is less than 1, there is no col offset, but there is a line above us, THEN: go to the above line
     //
     // IF the value is equal to the end of the window (we are trying to go off-screen to the right) AND there is still more of the current line to view
     // THEN: increment row offset (move us further down the line)
@@ -95,16 +96,39 @@ impl CursorHandler {
     //
     // Updates its CursorState after all values have been changed.
     fn handle_x_move(&mut self, val: i16, data: &Vec<TextRow>) {
-        if val == -1 && self.col_offset > 0 {
-            self.col_offset = self.col_offset - 1;
+        if val == -1 {
+            if self.col_offset > 0 {
+                self.col_offset = self.col_offset - 1;
+            } else if self.cy >= 1 {
+                self.cy = self.cy - 1;
+                self.wrap_cx_to_end(data);
+            }
         }
-        if val == (self.cols - 1).try_into().unwrap() && data[self.cy as usize].length() >= val + self.col_offset {
+        if val == (self.cols - 1).try_into().unwrap() && data[self.cy as usize].length() >= val + self.col_offset { // something about this seems wrong/weird to me?
             self.col_offset = self.col_offset + 1;
         }
-        if val != -1 && val != (self.cols - 1).try_into().unwrap() {
-            self.cx = val;
+        if val != -1 {
+            if val != (data[self.cy as usize].length() + 1).try_into().unwrap() {
+                self.cx = val;
+            } else {
+                self.cy = self.cy + 1;
+                self.cx = 0;
+            }
         }
 
         self.update_state();
+    }
+
+    // Helper method for wrapping cx to the end of the line indexed by the handler's current cy.
+    // Sets cx to the very end of this line, adding col_offset if the line is long enough.
+    // Doesn't update its CursorState -- this should be done by the calling function.
+    fn wrap_cx_to_end(&mut self, data: &Vec<TextRow>) {
+        let line_len = data[self.cy as usize].length();
+        if line_len > self.rows.try_into().unwrap() {
+            self.col_offset = line_len.wrapping_sub(self.rows.try_into().unwrap());
+            self.cx = line_len - self.col_offset;
+        } else {
+            self.cx = line_len;
+        }
     }
 }
