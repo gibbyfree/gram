@@ -73,38 +73,29 @@ impl CursorHandler {
     }
 
     // Handle a cursor move along the y-axis, with a proposed cy value and a reference to the RenderDriver's current data.
-    //
-    // IF the value is less than 1 (we are trying to go off-screen to the top) AND there is row offset (we are off-screen to the bottom)
-    // THEN: decrement row offset (move us back toward the beginning of the document)
-    //
-    // IF the value is equal to the end of the window (we are trying to go off-screen to the bottom) AND there is still more of the current document to view
-    // THEN: increment row offset (move us further into the document)
-    //
-    // IF the value is not less than 1 or equal to the end of the window (we are not pushing the borders of the document)
-    // THEN: just move cy around within the window
-    //
-    // Will also corrext cx if we skip from a long line to a shorter one.
+    // Will also correct cx if we skip from a long line to a shorter one.
     // Updates its CursorState after all values have been changed.
     fn handle_y_move(&mut self, val: i16, data: &Vec<TextRow>) {
-        if val == -1 && self.row_offset > 0 {
-            self.row_offset = self.row_offset - 1;
+        if val == -1 {
+            // moving offscreen to the top
+            if self.row_offset > 0 {
+                // any more rows to render?
+                self.row_offset = self.row_offset - 1;
+            }
         }
-        if val == (self.rows - 1).try_into().unwrap()
-            && (self.row_offset + self.cy) < data.len().try_into().unwrap()
-        {
-            self.row_offset = self.row_offset + 1;
+        if val == (self.rows - 1).try_into().unwrap() {
+            // moving offscreen to the bottom
+            if (self.row_offset + self.cy + 1) <= data.len().try_into().unwrap() {
+                // more data to render?
+                self.row_offset = self.row_offset + 1;
+            }
         }
         if val != -1 && val != (self.rows - 1).try_into().unwrap() {
+            // moving within the document
             self.cy = val;
         }
 
-        // correct cx if we just skipped to a shorter line
-        if self.cy + 1 <= data.len().try_into().unwrap()
-            && self.cx > data[self.cy as usize].length()
-        {
-            self.cx = data[self.cy as usize].length()
-        }
-
+        self.check_and_fix_cx(data);
         self.update_state();
     }
 
@@ -120,8 +111,8 @@ impl CursorHandler {
             } else if self.cy >= 1 {
                 // is there a line we can wrap to?
                 self.cy = self.cy - 1;
-                self.wrap_cx_to_end(data);
                 self.col_offset = 0;
+                self.wrap_cx_to_end(data);
                 has_wrapped = true;
             }
         }
@@ -138,7 +129,9 @@ impl CursorHandler {
                 has_wrapped = true;
             }
         }
-        if val == data[self.cy as usize].length() + 1 {
+        if val == data[self.cy as usize].length() + 1
+            || (val + self.col_offset >= data[self.cy as usize].length() + 1)
+        {
             // end of line
             if data.len() + 1 > self.cy.try_into().unwrap() {
                 // is there a line we can wrap to?
@@ -169,7 +162,9 @@ impl CursorHandler {
         }
     }
 
-
+    // Helper method for wrapping cy to the end of the document.
+    // Doesn't modify cx explicitly, but adjusts in helper function call.
+    // Doesn't update its CursorState -- this should be done by the calling function.
     fn wrap_cy_to_end(&mut self, data: &Vec<TextRow>) {
         let data_len: i16 = data.len().try_into().unwrap();
         if data_len > self.rows.try_into().unwrap() {
@@ -177,6 +172,17 @@ impl CursorHandler {
             self.cy = data_len - self.row_offset;
         } else {
             self.cy = data_len;
+        }
+        self.check_and_fix_cx(data);
+    }
+
+    // Corrects cx if needed. Intended to be used as a helper method when there's a chance that cx exceeds the current line.
+    // Mostly useful for use after cy is forcibly changed by a wrap or scroll event.
+    // Doesn't update its CursorState -- this should be done by the calling function.
+    fn check_and_fix_cx(&mut self, data: &Vec<TextRow>) {
+        if self.cx > data[self.cy as usize].length() {
+            self.cx = data[self.cy as usize].length();
+            self.col_offset = 0;
         }
     }
 }
