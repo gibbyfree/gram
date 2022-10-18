@@ -83,37 +83,39 @@ impl CursorHandler {
     }
 
     // Handle a cursor move along the x-axis, with a proposed cx value and a reference to the RenderDriver's current data.
-    //
-    // IF the value is less than 1 (we are trying to go off-screen to the left) AND there is col offset (we are off-screen to the right)
-    // THEN: decrement row offset (move us back toward the beginning of the line)
-    // IF the value is less than 1, there is no col offset, but there is a line above us, THEN: go to the above line
-    //
-    // IF the value is equal to the end of the window (we are trying to go off-screen to the right) AND there is still more of the current line to view
-    // THEN: increment row offset (move us further down the line)
-    //
-    // IF the value is not less than 1 or equal to the end of the window (we are not pushing the borders of the document)
-    // THEN: just move cx around within the line
-    //
     // Updates its CursorState after all values have been changed.
     fn handle_x_move(&mut self, val: i16, data: &Vec<TextRow>) {
-        if val == -1 {
-            if self.col_offset > 0 {
+        let mut has_wrapped = false;
+        if val == -1 { // moving offscreen to the left
+            if self.col_offset > 0 {  // is there more data to show here?
                 self.col_offset = self.col_offset - 1;
-            } else if self.cy >= 1 {
+            } else if self.cy >= 1 { // is there a line we can wrap to?
                 self.cy = self.cy - 1;
                 self.wrap_cx_to_end(data);
+                self.col_offset = 0;
+                has_wrapped = true;
             }
         }
-        if val == (self.cols - 1).try_into().unwrap() && data[self.cy as usize].length() >= val + self.col_offset { // something about this seems wrong/weird to me?
-            self.col_offset = self.col_offset + 1;
-        }
-        if val != -1 {
-            if val != (data[self.cy as usize].length() + 1).try_into().unwrap() {
-                self.cx = val;
-            } else {
+        if val == (self.cols - 1).try_into().unwrap() { // offscreen to the right
+            if data[self.cy as usize].length() >= val + self.col_offset { // is there more data to show here?
+                self.col_offset = self.col_offset + 1;
+            } else if data.len() + 1 > self.cy.try_into().unwrap() { // is there a line we can wrap to?
                 self.cy = self.cy + 1;
                 self.cx = 0;
+                self.col_offset = 0;
+                has_wrapped = true;
             }
+        }
+        if val == data[self.cy as usize].length() + 1 { // end of line
+            if data.len() + 1 > self.cy.try_into().unwrap() { // is there a line we can wrap to?
+                self.cy = self.cy + 1;
+                self.cx = 0;
+                self.col_offset = 0;
+                has_wrapped = true;
+            }
+        }
+        if val != -1 && val != (self.cols - 1).try_into().unwrap() && !has_wrapped { // not going offscreen
+            self.cx = val;
         }
 
         self.update_state();
