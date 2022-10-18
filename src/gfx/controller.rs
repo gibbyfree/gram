@@ -41,14 +41,13 @@ impl RenderController {
 
     // From a Page InputEvent's Direction, tell the CursorHandler to handle cursor movement.
     // Then give the updated CursorState to the RenderDriver.
-    // Could probably merge this with queue_move, if I so wished.
     pub fn queue_scroll(&mut self, d: Direction) {
         let data = self.render.get_text();
         match d {
-            Direction::Up => self.cursor.handle_cursor(false, 0, data),
-            Direction::Down => self.cursor.handle_cursor(false, self.rows.try_into().unwrap(), data),
-            Direction::Left => self.cursor.handle_cursor(true, 0, data),
-            Direction::Right => self.cursor.handle_cursor(true, self.cols.try_into().unwrap(), data),
+            Direction::Up => self.cursor.handle_scroll(false, true, data),
+            Direction::Down => self.cursor.handle_scroll(false, false, data),
+            Direction::Left => self.cursor.handle_scroll(true, true, data),
+            Direction::Right => self.cursor.handle_scroll(true, false, data),
             _ => (),
         }
         self.render.update_cursor_state(self.cursor.get_state());
