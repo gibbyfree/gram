@@ -1,5 +1,5 @@
 use std::io::{BufWriter, Stdout, Write, Error, stdout};
-use termion::raw::{IntoRawMode, RawTerminal};
+use termion::{raw::{IntoRawMode, RawTerminal}, color};
 use crate::{data::{textrow::TextRow, payload::CursorState}, utils};
 
 // RenderDriver. Primarily responsible for everything we draw to the editor window.
@@ -12,11 +12,14 @@ pub struct RenderDriver {
     buf: BufWriter<RawTerminal<Stdout>>,
     text: Vec<TextRow>,
     cursor: CursorState,
+    file_name: String,
+    status_info: String,
 }
 
 impl RenderDriver {
     // A RenderDriver is created with a fresh CursorState.
     // Initially, text is set to an empty vector of textrows. This is replaced with text if the program is run with a file path.
+    // Filename and statusinfo are also set to empty values. These are replaced if the program is run with a file path.
     pub fn new(cursor: CursorState) -> Self {
         let size_rc = utils::get_window_size();
         Self {
@@ -25,10 +28,13 @@ impl RenderDriver {
             buf: BufWriter::new(stdout().into_raw_mode().unwrap()),
             text: vec![TextRow::default()],
             cursor,
+            file_name: "".to_string(),
+            status_info: "".to_string(),
         }
     }
 
     // Draws the editor's footer, centered within the editor window.
+    // Deprecated method? Maybe can be reused for something else.
     fn draw_footer(&mut self) {
         let welcome = format!("Gram editor -- v{}\r", VERSION);
         let mut padding = (self.cols - welcome.len() as u16) / 2;
@@ -38,6 +44,20 @@ impl RenderDriver {
             padding = padding - 1;
         }
         write!(self.buf, "{}", welcome).expect(WRITE_ERR_MSG);
+    }
+
+    // Draw the editor's status bar, which spans the bottom-most line of the editor.
+    // Contains the filename, # of lines in the file, and the current line.
+    fn draw_status(&mut self) {
+        write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
+        write!(self.buf, "{}{}{}", color::Bg(color::White), color::Fg(color::Black), self.status_info).unwrap();
+
+        // only exclude length of text written -- termion:color borks str len
+        for _n in 0..self.cols.wrapping_sub(self.status_info.len().try_into().unwrap()).wrapping_sub((self.cursor.line_num().len()).try_into().unwrap()) {
+            write!(self.buf, "{}", " ").unwrap();
+        }
+
+        write!(self.buf, "{}\r{}{}", self.cursor.line_num(), color::Bg(color::Black), color::Fg(color::White)).unwrap();
     }
 
     // Sets the screen for this current tick.
@@ -57,7 +77,21 @@ impl RenderDriver {
                 writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }
         }
-        self.draw_footer();
+        self.draw_status();
+    }
+
+    // Sets the static status info of this file -- file name and # of lines in the file.
+    fn set_status_info(&mut self) {
+        let file: String;
+        if self.file_name.eq("") {
+            file = "[Untitled]".to_string();
+        } else if self.file_name.len() > 20 {
+            file = self.file_name[..20].to_string();
+        } else {
+            file = format!("{}", self.file_name); // i hate this
+        }
+        let lines = (self.text.len() + 1).to_string() + " lines";
+        self.status_info = format!("{} - {}", file, lines);
     }
 
     // Updates this RenderDriver's current CursorState.
@@ -71,8 +105,16 @@ impl RenderDriver {
     }
 
     // Sets the text data of the RenderDriver.
+    // At this point, the renderer should have both the file's text and its name. Set status info according to these values.
     pub(in crate::gfx) fn set_text(&mut self, text: Vec<TextRow>) {
         self.text = text;
+        self.set_status_info();
+    }
+
+    // Saves the file name of the opened file.
+    // Could potentially be refactored out, but waiting to see if this is useful to keep.
+    pub(in crate::gfx) fn set_file_name(&mut self, name: &str) {
+        self.file_name = name.to_string();
     }
 
     // Exits the editor, clearing the entire window and resetting the cursor position.

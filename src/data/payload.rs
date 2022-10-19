@@ -19,6 +19,12 @@ impl CursorState {
         }
     }
 
+    // Returns the 'line number' of this current cursor state.
+    // Stringified version of current cy.
+    pub fn line_num(self) -> String {
+        (self.cy + 1).to_string()
+    }
+
     // Update the values of this CursorState and return the updated CursorState.
     pub fn update(&mut self, new_cx: i16, new_cy: i16, new_roffset: i16, new_coffset: i16) -> CursorState {
         self.cx = new_cx;

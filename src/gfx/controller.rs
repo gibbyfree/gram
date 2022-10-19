@@ -7,8 +7,6 @@ use std::{io::{Error, BufReader, BufRead}, fs::File};
 pub struct RenderController {
     render: RenderDriver,
     cursor: CursorHandler,
-    rows: u16,
-    cols: u16,
 }
 
 impl RenderController {
@@ -20,8 +18,6 @@ impl RenderController {
         Self {
             render: RenderDriver::new(state),
             cursor,
-            rows: window_size.rows,
-            cols: window_size.cols,
         }
     }
 
@@ -54,6 +50,7 @@ impl RenderController {
     }
 
     // Read the contents of a file at a given path, line-by-line.
+    // Pass the filename to the renderer, for use in the status bar.
     // Pass this vec of strings to the next method, for upload to the RenderDriver.
     pub fn read_file(&mut self, s: &str) {
         let file = File::open(s).expect("File not found at the given location.");
@@ -63,6 +60,7 @@ impl RenderController {
         for line in buf.lines() {
             vec.push(line.unwrap());
         }
+        self.render.set_file_name(s);
         self.queue_text_upload(&vec);
     }
 
