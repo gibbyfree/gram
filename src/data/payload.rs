@@ -1,3 +1,6 @@
+use std::time::Instant;
+use std::fmt;
+
 // Cursor State. Represents the state of the CursorHandler at a moment in time.
 // Contains essential CursorHandler fields, for use by the renderer.
 #[derive(Copy, Clone)]
@@ -32,5 +35,50 @@ impl CursorState {
         self.row_offset = new_roffset;
         self.col_offset = new_coffset;
         *self
+    }
+}
+
+
+// Status Message. Represents the most recent status message displayed by the renderer.
+// Contains the text of the message, and a timestamp representing when the message was fired.
+// Choosing to use an Instant here instead of SystemTime, as all we really need is a way to compare to Instant::now() on render.
+pub struct StatusMessage {
+    pub content: String,
+    pub last_sent: Option<Instant>,
+}
+
+impl StatusMessage {
+    // Set to a keybind help message to begin with.
+    // last_sent is set to right now
+    pub fn new() -> Self {
+        Self {
+            content: "".to_string(),
+            last_sent: None,
+        }
+    }
+
+    // Update the content of the latest status message.
+    // We also update last_sent here.
+    // Technically we could wait to update the timestamp until the renderer actually draws the message.
+    // Since we're working with seconds instead of milliseconds here, I think it's fine to set the timestamp here (for now).
+    pub fn set_content(&mut self, content: String) {
+        self.content = content;
+        self.last_sent = Some(Instant::now());
+    }
+
+    // Returns whether or not the renderer should print this status message.
+    // We print a status message if it's been live for less than 5 seconds.
+    pub fn should_print(&mut self) -> bool {
+        match self.last_sent {
+            None => false,
+            Some(t) => t.elapsed().as_secs() <= 5
+        }
+    }
+}
+
+impl fmt::Display for StatusMessage {
+    // We display a StatusMessage by printing out its content.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.content)
     }
 }

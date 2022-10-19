@@ -1,6 +1,6 @@
 use std::io::{BufWriter, Stdout, Write, Error, stdout};
 use termion::{raw::{IntoRawMode, RawTerminal}, color};
-use crate::{data::{textrow::TextRow, payload::CursorState}, utils};
+use crate::{data::{textrow::TextRow, payload::{CursorState, StatusMessage}}, utils};
 
 // RenderDriver. Primarily responsible for everything we draw to the editor window.
 // Contains an understanding of editor window size, based upon window size at program initialization.
@@ -14,6 +14,7 @@ pub struct RenderDriver {
     cursor: CursorState,
     file_name: String,
     status_info: String,
+    status_message: StatusMessage
 }
 
 impl RenderDriver {
@@ -30,25 +31,13 @@ impl RenderDriver {
             cursor,
             file_name: "".to_string(),
             status_info: "".to_string(),
+            status_message: StatusMessage::new(),
         }
-    }
-
-    // Draws the editor's footer, centered within the editor window.
-    // Deprecated method? Maybe can be reused for something else.
-    fn draw_footer(&mut self) {
-        let welcome = format!("Gram editor -- v{}\r", VERSION);
-        let mut padding = (self.cols - welcome.len() as u16) / 2;
-        write!(self.buf, "~").expect(WRITE_ERR_MSG);
-        while padding > 0 {
-            write!(self.buf, " ").expect(WRITE_ERR_MSG);
-            padding = padding - 1;
-        }
-        write!(self.buf, "{}", welcome).expect(WRITE_ERR_MSG);
     }
 
     // Draw the editor's status bar, which spans the bottom-most line of the editor.
     // Contains the filename, # of lines in the file, and the current line.
-    fn draw_status(&mut self) {
+    fn draw_status_bar(&mut self) {
         write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
         write!(self.buf, "{}{}{}", color::Bg(color::White), color::Fg(color::Black), self.status_info).unwrap();
 
@@ -57,15 +46,36 @@ impl RenderDriver {
             write!(self.buf, "{}", " ").unwrap();
         }
 
-        write!(self.buf, "{}\r{}{}", self.cursor.line_num(), color::Bg(color::Black), color::Fg(color::White)).unwrap();
+        write!(self.buf, "{}\r", self.cursor.line_num()).unwrap();
+    }
+
+    // Draws the status message, which appears below the status bar.
+    // Only contains messages to the user for now.
+    fn draw_status_message(&mut self) {
+        write!(self.buf, "\n").expect(WRITE_ERR_MSG);
+        write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
+        write!(self.buf, "{}{}{}\r", color::Bg(color::White), color::Fg(color::Black), self.status_message).unwrap();
+    }
+
+    // Reset color used in terminal printing. Necessary after drawing status components.
+    fn reset_color(&mut self) {
+        write!(self.buf, "{}{}", color::Bg(color::Black), color::Fg(color::White)).unwrap();
     }
 
     // Sets the screen for this current tick.
     // Iterates through all rows of the window, clearing its old contents and replacing with either rendered text or a blank line.
     // Uses row and col offset to determine which textrows are rendered, and how.
-    // Renders the footer as the last line.
+    // Renders the status bar as the last line, unless there is a status message to print -- in which case we print both. Resets color afterwards.
     fn set_screen(&mut self) {
-        for n in 0..self.rows - 1 {
+        let end: u16;
+        let render_message = self.status_message.should_print();
+        if render_message {
+            end = self.rows - 2;
+        } else {
+            end = self.rows - 1;
+        }
+
+        for n in 0..end {
             // clear the current line
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
             let row_idx = n.wrapping_add(self.cursor.row_offset as u16);
@@ -77,7 +87,11 @@ impl RenderDriver {
                 writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }
         }
-        self.draw_status();
+        self.draw_status_bar();
+        if render_message {
+            self.draw_status_message();
+        }
+       self.reset_color();
     }
 
     // Sets the static status info of this file -- file name and # of lines in the file.
@@ -94,6 +108,12 @@ impl RenderDriver {
         self.status_info = format!("{} - {}", file, lines);
     }
 
+    // Final set-up method for the renderer. Sets status info and status message.
+    fn complete_init(&mut self) {
+        self.set_status_info();
+        self.status_message.set_content(KEYBIND_HELP_MSG.to_string());
+    }
+
     // Updates this RenderDriver's current CursorState.
     pub(in crate::gfx) fn update_cursor_state(&mut self, state: CursorState) {
         self.cursor = state;
@@ -105,10 +125,10 @@ impl RenderDriver {
     }
 
     // Sets the text data of the RenderDriver.
-    // At this point, the renderer should have both the file's text and its name. Set status info according to these values.
+    // At this point, the renderer should have everything that it needs to complete its initialization.
     pub(in crate::gfx) fn set_text(&mut self, text: Vec<TextRow>) {
         self.text = text;
-        self.set_status_info();
+        self.complete_init();
     }
 
     // Saves the file name of the opened file.
@@ -135,3 +155,4 @@ impl RenderDriver {
 
 const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
 const VERSION: &'static str = "0.1";
+const KEYBIND_HELP_MSG: &'static str = "HELP: Use Ctrl+Q to exit.";
