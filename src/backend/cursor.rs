@@ -5,8 +5,8 @@ use crate::data::{payload::CursorState, textrow::TextRow};
 // row_offset and col_offset represent the degree to which the cursor is moved 'off-screen' on either axis.
 // Also stores the size of the terminal window (upon program initialization -- doesn't mutate) and its current state.
 pub struct CursorHandler {
-    pub(in crate::gfx) cx: i16,
-    pub(in crate::gfx) cy: i16,
+    pub cx: i16,
+    pub cy: i16,
     row_offset: i16,
     col_offset: i16,
     rows: u16,
@@ -29,7 +29,7 @@ impl CursorHandler {
     }
 
     // Returns the CursorHandler's current state.
-    pub(in crate::gfx) fn get_state(&mut self) -> CursorState {
+    pub fn get_state(&mut self) -> CursorState {
         self.state
     }
 
@@ -44,7 +44,7 @@ impl CursorHandler {
     // x: whether this is a move on the x-axis or not (if not, then y-axis)
     // val: proposed new value for cx/cy
     // data: reference to the RenderDriver's current state of text
-    pub(in crate::gfx) fn handle_cursor(&mut self, x: bool, val: i16, data: &Vec<TextRow>) {
+    pub fn handle_cursor(&mut self, x: bool, val: i16, data: &Vec<TextRow>) {
         if x {
             self.handle_x_move(val, data);
         } else {
@@ -55,7 +55,7 @@ impl CursorHandler {
     // More stripped-down version of handle_cursor, used to handle scroll events.
     // Necessary because the controller is unaware of data size / current lines. unlike CH.
     // Updates its CursorState after all values have been changed.
-    pub(in crate::gfx) fn handle_scroll(&mut self, x: bool, start: bool, data: &Vec<TextRow>) {
+    pub fn handle_scroll(&mut self, x: bool, start: bool, data: &Vec<TextRow>) {
         match (x, start) {
             (true, true) => {
                 self.cx = 0;

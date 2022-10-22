@@ -1,4 +1,4 @@
-use crate::{gfx::{render::RenderDriver, cursor::CursorHandler}, data::{enums::Direction, textrow::TextRow}, utils};
+use crate::{gfx::{render::RenderDriver}, data::{enums::Direction, textrow::TextRow}, utils, backend::cursor::CursorHandler};
 use std::{io::{Error, BufReader, BufRead}, fs::File};
 
 // RenderController. Parses user input and calls the appropriate processing / rendering methods within the crate.
