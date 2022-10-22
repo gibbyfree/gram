@@ -1,11 +1,12 @@
+use std::env::args;
+use std::io::Error;
+
+mod data;
 mod gfx;
 mod input;
-mod data;
 mod utils;
 mod backend;
 
-use std::env::args;
-use std::io::Error;
 use crate::data::enums::InputEvent;
 use crate::gfx::controller::RenderController;
 

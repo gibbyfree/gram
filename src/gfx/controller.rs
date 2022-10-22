@@ -1,12 +1,12 @@
-use crate::{gfx::{render::RenderDriver}, data::{enums::Direction, textrow::TextRow}, utils, backend::cursor::CursorHandler};
+use crate::{gfx::{render::RenderDriver}, data::{enums::Direction, textrow::TextRow}, utils, backend::{cursor::CursorHandler, operations::OperationsHandler}};
 use std::{io::{Error, BufReader, BufRead}, fs::File};
 
 // RenderController. Parses user input and calls the appropriate processing / rendering methods within the crate.
 // Contains a RenderDriver, CursorHandler, and terminal window size upon initialization.
 // Note: No support whatsoever for mid-session window resizing (yet).
 pub struct RenderController {
-    render: RenderDriver,
     cursor: CursorHandler,
+    operations: OperationsHandler
 }
 
 impl RenderController {
@@ -15,16 +15,17 @@ impl RenderController {
         let window_size = utils::get_window_size();
         let mut cursor = CursorHandler::new(window_size.rows, window_size.cols);
         let state = cursor.get_state();
+        let render = RenderDriver::new(state);
         Self {
-            render: RenderDriver::new(state),
             cursor,
+            operations: OperationsHandler::new(render),
         }
     }
 
     // From a Move InputEvent's Direction, tell the CursorHandler to handle cursor movement.
     // Then give the updated CursorState to the RenderDriver.
     pub fn queue_move(&mut self, d: Direction) {
-        let data = self.render.get_text();
+        let data = self.operations.get_text();
         match d {
             Direction::Down => self.cursor.handle_cursor(false, self.cursor.cy + 1, data),
             Direction::Up => self.cursor.handle_cursor(false, self.cursor.cy - 1, data),
@@ -32,13 +33,13 @@ impl RenderController {
             Direction::Right => self.cursor.handle_cursor(true, self.cursor.cx + 1, data),
             _ => (),
         }
-        self.render.update_cursor_state(self.cursor.get_state());
+        self.operations.update_cursor_state(self.cursor.get_state());
     }
 
     // From a Page InputEvent's Direction, tell the CursorHandler to handle cursor movement.
     // Then give the updated CursorState to the RenderDriver.
     pub fn queue_scroll(&mut self, d: Direction) {
-        let data = self.render.get_text();
+        let data = self.operations.get_text();
         match d {
             Direction::Up => self.cursor.handle_scroll(false, true, data),
             Direction::Down => self.cursor.handle_scroll(false, false, data),
@@ -46,7 +47,7 @@ impl RenderController {
             Direction::Right => self.cursor.handle_scroll(true, false, data),
             _ => (),
         }
-        self.render.update_cursor_state(self.cursor.get_state());
+        self.operations.update_cursor_state(self.cursor.get_state());
     }
 
     // Read the contents of a file at a given path, line-by-line.
@@ -60,7 +61,7 @@ impl RenderController {
         for line in buf.lines() {
             vec.push(line.unwrap());
         }
-        self.render.set_file_name(s);
+        self.operations.set_file_name(s);
         self.queue_text_upload(&vec);
     }
 
@@ -73,17 +74,17 @@ impl RenderController {
             let row = TextRow::new(str);
             output.push(row);
         }
-        self.render.set_text(output)
+        self.operations.set_text(output)
     }
 
     // Tell the RenderDriver to shutdown the editor.
     pub fn exit(&mut self) {
-        self.render.exit();
+        self.operations.exit();
     }
 
     // Tell the RenderDriver to continue processing.
     pub fn tick_screen(&mut self) -> Result<(), Error> {
-        self.render.tick_screen()
+        self.operations.tick_screen()
     }
 
 }

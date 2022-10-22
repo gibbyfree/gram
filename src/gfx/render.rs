@@ -115,36 +115,36 @@ impl RenderDriver {
     }
 
     // Updates this RenderDriver's current CursorState.
-    pub(in crate::gfx) fn update_cursor_state(&mut self, state: CursorState) {
+    pub fn update_cursor_state(&mut self, state: CursorState) {
         self.cursor = state;
     }
 
     // Returns a reference to this RenderDriver's current text data.
-    pub(in crate::gfx) fn get_text(&mut self) -> &Vec<TextRow> {
+    pub fn get_text(&mut self) -> &Vec<TextRow> {
         &self.text
     }
 
     // Sets the text data of the RenderDriver.
     // At this point, the renderer should have everything that it needs to complete its initialization.
-    pub(in crate::gfx) fn set_text(&mut self, text: Vec<TextRow>) {
+    pub fn set_text(&mut self, text: Vec<TextRow>) {
         self.text = text;
         self.complete_init();
     }
 
     // Saves the file name of the opened file.
     // Could potentially be refactored out, but waiting to see if this is useful to keep.
-    pub(in crate::gfx) fn set_file_name(&mut self, name: &str) {
+    pub fn set_file_name(&mut self, name: &str) {
         self.file_name = name.to_string();
     }
 
     // Exits the editor, clearing the entire window and resetting the cursor position.
-    pub(in crate::gfx) fn exit(&mut self) {
+    pub fn exit(&mut self) {
         write!(self.buf, "{}{}", termion::cursor::Goto(1, 1), termion::clear::All).expect(WRITE_ERR_MSG);
         self.buf.flush().unwrap();
     }
 
     // Ticks the screen by moving the cursor out of the way and hiding it, then drawing, then replacing the cursor and unhiding.
-    pub(in crate::gfx) fn tick_screen(&mut self) -> Result<(), Error> {
+    pub fn tick_screen(&mut self) -> Result<(), Error> {
         write!(self.buf, "{}{}", termion::cursor::Goto(1, 1), termion::cursor::Hide).expect(WRITE_ERR_MSG);
         self.set_screen();
         write!(self.buf, "{}{}", termion::cursor::Goto((self.cursor.cx + 1).try_into().unwrap(), (self.cursor.cy + 1).try_into().unwrap()), termion::cursor::Show).expect(WRITE_ERR_MSG); 
