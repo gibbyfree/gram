@@ -114,6 +114,7 @@ impl RenderDriver {
         self.status_message.set_content(KEYBIND_HELP_MSG.to_string());
     }
 
+    // PUBLIC METHODS //
     // Updates this RenderDriver's current CursorState.
     pub fn update_cursor_state(&mut self, state: CursorState) {
         self.cursor = state;
@@ -121,7 +122,7 @@ impl RenderDriver {
 
     // Returns a reference to this RenderDriver's current text data.
     pub fn get_text(&mut self) -> &Vec<TextRow> {
-        &self.text
+        &mut self.text
     }
 
     // Sets the text data of the RenderDriver.
@@ -129,6 +130,10 @@ impl RenderDriver {
     pub fn set_text(&mut self, text: Vec<TextRow>) {
         self.text = text;
         self.complete_init();
+    }
+
+    pub fn set_text_at_index(&mut self, idx: usize, row: String) {
+        self.text[idx].update_text(row);
     }
 
     // Saves the file name of the opened file.
@@ -151,8 +156,8 @@ impl RenderDriver {
 
         self.buf.flush()
     }
+    // END OF PUBLIC METHODS //
 }
 
 const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
-const VERSION: &'static str = "0.1";
 const KEYBIND_HELP_MSG: &'static str = "HELP: Use Ctrl+Q to exit.";

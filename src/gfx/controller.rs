@@ -2,15 +2,16 @@ use crate::{gfx::{render::RenderDriver}, data::{enums::Direction, textrow::TextR
 use std::{io::{Error, BufReader, BufRead}, fs::File};
 
 // RenderController. Parses user input and calls the appropriate processing / rendering methods within the crate.
-// Contains a RenderDriver, CursorHandler, and terminal window size upon initialization.
-// Note: No support whatsoever for mid-session window resizing (yet).
+// Contains a CursorHandler and OperationsHandler on initialization.
 pub struct RenderController {
     cursor: CursorHandler,
     operations: OperationsHandler
 }
 
 impl RenderController {
-    // Create a CursorHandler under current window size. Pass its blank CursorState to the RenderDriver.
+    // Create a CursorHandler under current window size. Pass its blank CursorState to a RenderDriver.
+    // Uses this RenderDriver to construct an OperationsHandler.
+    // Note: No support whatsoever for mid-session window resizing (yet).
     pub fn new() -> Self {
         let window_size = utils::get_window_size();
         let mut cursor = CursorHandler::new(window_size.rows, window_size.cols);
@@ -48,6 +49,11 @@ impl RenderController {
             _ => (),
         }
         self.operations.update_cursor_state(self.cursor.get_state());
+    }
+
+    // From a Write InputEvent's character, input the given character at the current cursor position.
+    pub fn queue_write(&mut self, c: char) {
+        self.operations.process_write(self.cursor.get_state(), c);
     }
 
     // Read the contents of a file at a given path, line-by-line.

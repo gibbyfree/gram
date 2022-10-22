@@ -6,7 +6,7 @@ use unicode_segmentation::UnicodeSegmentation;
 // text: Modified text line, truncated or substringed.
 #[derive(Default)]
 pub struct TextRow {
-    raw_text: String,
+    pub raw_text: String,
     text: String,
 }
 
@@ -37,6 +37,12 @@ impl TextRow {
     // (This should best represent what a human using a text editor understands to be a character.)
     pub fn length(&self) -> i16 {
         (self.raw_text.graphemes(true).count() as i16) + 1
+    }
+
+    pub fn update_text(&mut self, text: String) {
+        let copy = text.clone();
+        self.raw_text = text;
+        self.text = copy;
     }
 }
 
