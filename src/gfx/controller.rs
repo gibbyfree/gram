@@ -1,11 +1,19 @@
-use crate::{gfx::{render::RenderDriver}, data::{enums::Direction, textrow::TextRow}, utils, backend::{cursor::CursorHandler, operations::OperationsHandler}};
-use std::{io::{Error, BufReader, BufRead}, fs::File};
+use crate::{
+    backend::{cursor::CursorHandler, operations::OperationsHandler},
+    data::{enums::Direction, textrow::TextRow},
+    gfx::render::RenderDriver,
+    utils,
+};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader, Error},
+};
 
 // RenderController. Parses user input and calls the appropriate processing / rendering methods within the crate.
 // Contains a CursorHandler and OperationsHandler on initialization.
 pub struct RenderController {
     cursor: CursorHandler,
-    operations: OperationsHandler
+    operations: OperationsHandler,
 }
 
 impl RenderController {
@@ -52,8 +60,12 @@ impl RenderController {
     }
 
     // From a Write InputEvent's character, input the given character at the current cursor position.
+    // Increment cursor with each write. Update CursorState for the RenderDriver.
     pub fn queue_write(&mut self, c: char) {
         self.operations.process_write(self.cursor.get_state(), c);
+        self.cursor
+            .handle_cursor(true, self.cursor.cx + 1, self.operations.get_text());
+        self.operations.update_cursor_state(self.cursor.get_state());
     }
 
     // Read the contents of a file at a given path, line-by-line.
@@ -71,6 +83,8 @@ impl RenderController {
         self.queue_text_upload(&vec);
     }
 
+    pub fn write_file(&mut self) {}
+
     // Parse a vec of strings into a vec of TextRows.
     // Pass this vec of TextRows to the RenderDriver.
     pub fn queue_text_upload(&mut self, vec: &Vec<String>) {
@@ -83,6 +97,11 @@ impl RenderController {
         self.operations.set_text(output)
     }
 
+    // Complete RenderDriver initialization without a text upload.
+    pub fn finish_early(&mut self) {
+        self.operations.complete_init();
+    }
+
     // Tell the RenderDriver to shutdown the editor.
     pub fn exit(&mut self) {
         self.operations.exit();
@@ -92,5 +111,4 @@ impl RenderController {
     pub fn tick_screen(&mut self) -> Result<(), Error> {
         self.operations.tick_screen()
     }
-
 }

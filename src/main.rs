@@ -37,7 +37,7 @@ impl Gram {
 
         let file_name = args().nth(1);
         match file_name {
-            None => (),
+            None => (self.ctrl.finish_early()),
             Some(str) => self.ctrl.read_file(&str),
         };
 

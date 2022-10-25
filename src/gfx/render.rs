@@ -79,10 +79,12 @@ impl RenderDriver {
             // clear the current line
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
             let row_idx = n.wrapping_add(self.cursor.row_offset as u16);
-            // render text if necessary, else render edge
+            // render text if necessary, else render edge (or blank space for the final line)
             if row_idx < self.text.len() as u16 {
                 let render_str = self.text[row_idx as usize].substring(self.cursor.col_offset);
                 writeln!(self.buf, "{}\r", render_str.truncate(self.cols)).expect(WRITE_ERR_MSG);
+            } else if row_idx == self.text.len() as u16 {
+                writeln!(self.buf, "\r").expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }
@@ -108,13 +110,13 @@ impl RenderDriver {
         self.status_info = format!("{} - {}", file, lines);
     }
 
+    // PUBLIC METHODS //
     // Final set-up method for the renderer. Sets status info and status message.
-    fn complete_init(&mut self) {
+    pub fn complete_init(&mut self) {
         self.set_status_info();
         self.status_message.set_content(KEYBIND_HELP_MSG.to_string());
     }
 
-    // PUBLIC METHODS //
     // Updates this RenderDriver's current CursorState.
     pub fn update_cursor_state(&mut self, state: CursorState) {
         self.cursor = state;
@@ -132,8 +134,21 @@ impl RenderDriver {
         self.complete_init();
     }
 
+    // Update the text contained at a given row index.
+    // If this is a modification, insert the new text at the row.
+    // If this is an insert, add whitespace lines as needed and then push the new text to the end.
+    // Additionally, an insert might require us to update status info to include the new document length.
     pub fn set_text_at_index(&mut self, idx: usize, row: String) {
-        self.text[idx].update_text(row);
+        if idx < self.text.len() {
+            self.text[idx].update_text(row);
+        } else {
+            let dif = idx - self.text.len();
+            for _i in 0..dif {
+                self.text.push(TextRow::new("".to_string()));
+            }
+            self.text.push(TextRow::new(row));
+        }
+        self.set_status_info();
     }
 
     // Saves the file name of the opened file.

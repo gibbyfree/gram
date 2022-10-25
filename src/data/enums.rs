@@ -3,7 +3,7 @@
 // Quit (Ctrl+Q) - Close the editor
 // Move (Arrow keys) - Move the cursor in the editor
 // Page (Home/End/PgUp/PgDn) - Snap cursor to the left/right/top/bottom of the editor
-// 
+// Write - Input a character into a line of text
 pub enum InputEvent {
     Quit,
     Move(Direction),

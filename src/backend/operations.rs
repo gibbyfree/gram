@@ -2,24 +2,32 @@ use std::io::Error;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{gfx::render::RenderDriver, data::{textrow::TextRow, payload::CursorState}};
+use crate::{
+    data::{payload::CursorState, textrow::TextRow},
+    gfx::render::RenderDriver,
+};
 
 // OperationsHandler. Its purpose in life is to manipulate the fields of a RenderDriver.
 pub struct OperationsHandler {
     render: RenderDriver,
+    file_name: String,
 }
 
 impl OperationsHandler {
     pub fn new(render: RenderDriver) -> Self {
         Self {
             render,
+            file_name: "[Untitled]".to_string(),
         }
     }
 
     pub fn process_write(&mut self, cursor: CursorState, c: char) {
         let data: &Vec<TextRow> = self.render.get_text();
         let idx = cursor.cy as usize;
-        let row_text = &data[idx].raw_text;
+        let mut row_text: &String = &"".to_string();
+        if data.len() > idx.try_into().unwrap() {
+            row_text = &data[idx].raw_text;
+        }
 
         // break into graphemes, insert char, put back to string
         let mut g = row_text.graphemes(true).collect::<Vec<&str>>();
@@ -29,6 +37,8 @@ impl OperationsHandler {
 
         self.render.set_text_at_index(idx, updated);
     }
+
+    pub fn write_file(&mut self) {}
 
     // WRAPPER METHODS //
     // Wrapper around RenderDriver's get_text.
@@ -47,8 +57,10 @@ impl OperationsHandler {
     }
 
     // Wrapper around RenderDriver's set_file_name.
+    // We'll also save this file_name to a field here, for use when saving files.
     pub fn set_file_name(&mut self, name: &str) {
         self.render.set_file_name(name);
+        self.file_name = name.to_string();
     }
 
     // Wrapper around RenderDriver's tick_screen.
@@ -59,6 +71,11 @@ impl OperationsHandler {
     // Wrapper around RenderDriver's exit.
     pub fn exit(&mut self) {
         self.render.exit();
+    }
+
+    // Wrapper around RenderDriver's complete_init.
+    pub fn complete_init(&mut self) {
+        self.render.complete_init();
     }
     // END OF WRAPPER METHODS //
 }

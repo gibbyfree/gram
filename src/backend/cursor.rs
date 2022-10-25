@@ -90,7 +90,7 @@ impl CursorHandler {
                 self.row_offset = self.row_offset + 1;
             }
         }
-        if val != -1 && val != (self.rows - 1).try_into().unwrap() {
+        if val != -1 && val != (self.rows - 1).try_into().unwrap() && val <= data.len().try_into().unwrap() {
             // moving within the document
             self.cy = val;
         }
@@ -180,8 +180,14 @@ impl CursorHandler {
     // Mostly useful for use after cy is forcibly changed by a wrap or scroll event.
     // Doesn't update its CursorState -- this should be done by the calling function.
     fn check_and_fix_cx(&mut self, data: &Vec<TextRow>) {
-        if self.cx > data[self.cy as usize].length() {
+        if data.len() > self.cy.try_into().unwrap() && self.cx > data[self.cy as usize].length() {
             self.cx = data[self.cy as usize].length();
+            self.col_offset = 0;
+        }
+        
+        // if final line in editor
+        if data.len() == self.cy.try_into().unwrap() {
+            self.cx = 0;
             self.col_offset = 0;
         }
     }
