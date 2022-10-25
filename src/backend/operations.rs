@@ -30,8 +30,12 @@ impl OperationsHandler {
         }
 
         // break into graphemes, insert char, put back to string
+        // if we are starting insertion at the very end of the line, add a space
         let mut g = row_text.graphemes(true).collect::<Vec<&str>>();
         let mut tmp = [0u8; 4];
+        if g.len() < cursor.cx.try_into().unwrap() {
+            g.insert(g.len(), " ");
+        }
         g.insert(cursor.cx as usize, c.encode_utf8(&mut tmp));
         let updated: String = g.into_iter().map(String::from).collect();
 
