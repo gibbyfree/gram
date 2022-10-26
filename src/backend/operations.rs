@@ -1,4 +1,4 @@
-use std::io::Error;
+use std::{io::{Error, Write}, fs::{File, OpenOptions}};
 
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -42,7 +42,24 @@ impl OperationsHandler {
         self.render.set_text_at_index(idx, updated);
     }
 
-    pub fn write_file(&mut self) {}
+    pub fn write_file(&mut self, name: &str) {
+        let data: &Vec<TextRow> = self.render.get_text();
+        let mut output = String::from("");
+
+        for t in data {
+            output.push_str(&t.raw_text);
+            output.push_str("\n");
+        }
+
+        let mut f: File;
+        if self.file_name.eq("[Untitled]") {
+            f = File::create("filler_file_name.txt").unwrap();
+        } else {
+            f = OpenOptions::new().write(true).truncate(true).open(name).unwrap();
+        }
+
+        f.write_all(output.as_bytes()).unwrap();
+    }
 
     // WRAPPER METHODS //
     // Wrapper around RenderDriver's get_text.
@@ -61,10 +78,8 @@ impl OperationsHandler {
     }
 
     // Wrapper around RenderDriver's set_file_name.
-    // We'll also save this file_name to a field here, for use when saving files.
     pub fn set_file_name(&mut self, name: &str) {
         self.render.set_file_name(name);
-        self.file_name = name.to_string();
     }
 
     // Wrapper around RenderDriver's tick_screen.

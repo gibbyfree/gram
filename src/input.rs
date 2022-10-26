@@ -20,6 +20,7 @@ pub fn proc_key() -> Option<InputEvent> {
 
     match k {
         Key::Ctrl('q') => return Some(InputEvent::Quit),
+        Key::Ctrl('s') => return Some(InputEvent::Save),
         Key::Up => return Some(InputEvent::Move(Direction::Up)),
         Key::Left => return Some(InputEvent::Move(Direction::Left)),
         Key::Down => return Some(InputEvent::Move(Direction::Down)),

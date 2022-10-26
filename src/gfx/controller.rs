@@ -14,6 +14,7 @@ use std::{
 pub struct RenderController {
     cursor: CursorHandler,
     operations: OperationsHandler,
+    file_name: String
 }
 
 impl RenderController {
@@ -28,6 +29,7 @@ impl RenderController {
         Self {
             cursor,
             operations: OperationsHandler::new(render),
+            file_name: "".to_string(),
         }
     }
 
@@ -69,7 +71,7 @@ impl RenderController {
     }
 
     // Read the contents of a file at a given path, line-by-line.
-    // Pass the filename to the renderer, for use in the status bar.
+    // Pass the filename to the renderer, for use in the status bar. (Save a copy of it, for when we want to save the file later.)
     // Pass this vec of strings to the next method, for upload to the RenderDriver.
     pub fn read_file(&mut self, s: &str) {
         let file = File::open(s).expect("File not found at the given location.");
@@ -79,11 +81,16 @@ impl RenderController {
         for line in buf.lines() {
             vec.push(line.unwrap());
         }
+        let ctrl_cpy = s.clone();
         self.operations.set_file_name(s);
+        self.file_name = ctrl_cpy.to_string();
+
         self.queue_text_upload(&vec);
     }
 
-    pub fn write_file(&mut self) {}
+    pub fn write_file(&mut self) {
+        self.operations.write_file(&self.file_name)
+    }
 
     // Parse a vec of strings into a vec of TextRows.
     // Pass this vec of TextRows to the RenderDriver.
@@ -104,6 +111,7 @@ impl RenderController {
 
     // Tell the RenderDriver to shutdown the editor.
     pub fn exit(&mut self) {
+        self.write_file();
         self.operations.exit();
     }
 
