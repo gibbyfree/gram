@@ -1,6 +1,16 @@
-use std::io::{BufWriter, Stdout, Write, Error, stdout};
-use termion::{raw::{IntoRawMode, RawTerminal}, color};
-use crate::{data::{textrow::TextRow, payload::{CursorState, StatusMessage}}, utils};
+use crate::{
+    data::{
+        enums::StatusContent,
+        payload::{CursorState, StatusMessage},
+        textrow::TextRow,
+    },
+    utils,
+};
+use std::io::{stdout, BufWriter, Error, Stdout, Write};
+use termion::{
+    color,
+    raw::{IntoRawMode, RawTerminal},
+};
 
 // RenderDriver. Primarily responsible for everything we draw to the editor window.
 // Contains an understanding of editor window size, based upon window size at program initialization.
@@ -14,7 +24,7 @@ pub struct RenderDriver {
     cursor: CursorState,
     file_name: String,
     status_info: String,
-    status_message: StatusMessage
+    status_message: StatusMessage,
 }
 
 impl RenderDriver {
@@ -39,10 +49,21 @@ impl RenderDriver {
     // Contains the filename, # of lines in the file, and the current line.
     fn draw_status_bar(&mut self) {
         write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
-        write!(self.buf, "{}{}{}", color::Bg(color::White), color::Fg(color::Black), self.status_info).unwrap();
+        write!(
+            self.buf,
+            "{}{}{}",
+            color::Bg(color::White),
+            color::Fg(color::Black),
+            self.status_info
+        )
+        .unwrap();
 
         // only exclude length of text written -- termion:color borks str len
-        for _n in 0..self.cols.wrapping_sub(self.status_info.len().try_into().unwrap()).wrapping_sub((self.cursor.line_num().len()).try_into().unwrap()) {
+        for _n in 0..self
+            .cols
+            .wrapping_sub(self.status_info.len().try_into().unwrap())
+            .wrapping_sub((self.cursor.line_num().len()).try_into().unwrap())
+        {
             write!(self.buf, "{}", " ").unwrap();
         }
 
@@ -54,12 +75,25 @@ impl RenderDriver {
     fn draw_status_message(&mut self) {
         write!(self.buf, "\n").expect(WRITE_ERR_MSG);
         write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
-        write!(self.buf, "{}{}{}\r", color::Bg(color::White), color::Fg(color::Black), self.status_message).unwrap();
+        write!(
+            self.buf,
+            "{}{}{}\r",
+            color::Bg(color::White),
+            color::Fg(color::Black),
+            self.status_message
+        )
+        .unwrap();
     }
 
     // Reset color used in terminal printing. Necessary after drawing status components.
     fn reset_color(&mut self) {
-        write!(self.buf, "{}{}", color::Bg(color::Black), color::Fg(color::White)).unwrap();
+        write!(
+            self.buf,
+            "{}{}",
+            color::Bg(color::Black),
+            color::Fg(color::White)
+        )
+        .unwrap();
     }
 
     // Sets the screen for this current tick.
@@ -93,7 +127,7 @@ impl RenderDriver {
         if render_message {
             self.draw_status_message();
         }
-       self.reset_color();
+        self.reset_color();
     }
 
     // Sets the static status info of this file -- file name and # of lines in the file.
@@ -114,7 +148,17 @@ impl RenderDriver {
     // Final set-up method for the renderer. Sets status info and status message.
     pub fn complete_init(&mut self) {
         self.set_status_info();
-        self.status_message.set_content(KEYBIND_HELP_MSG.to_string());
+        self.status_message
+            .set_content(KEYBIND_HELP_MSG.to_string());
+    }
+
+    pub fn update_status_message(&mut self, t: StatusContent) {
+        match t {
+            StatusContent::SaveSuccess => self
+                .status_message
+                .set_content(SAVE_SUCCESS_MSG.to_string()),
+            StatusContent::Help => (),
+        }
     }
 
     // Updates this RenderDriver's current CursorState.
@@ -159,15 +203,36 @@ impl RenderDriver {
 
     // Exits the editor, clearing the entire window and resetting the cursor position.
     pub fn exit(&mut self) {
-        write!(self.buf, "{}{}", termion::cursor::Goto(1, 1), termion::clear::All).expect(WRITE_ERR_MSG);
+        write!(
+            self.buf,
+            "{}{}",
+            termion::cursor::Goto(1, 1),
+            termion::clear::All
+        )
+        .expect(WRITE_ERR_MSG);
         self.buf.flush().unwrap();
     }
 
     // Ticks the screen by moving the cursor out of the way and hiding it, then drawing, then replacing the cursor and unhiding.
     pub fn tick_screen(&mut self) -> Result<(), Error> {
-        write!(self.buf, "{}{}", termion::cursor::Goto(1, 1), termion::cursor::Hide).expect(WRITE_ERR_MSG);
+        write!(
+            self.buf,
+            "{}{}",
+            termion::cursor::Goto(1, 1),
+            termion::cursor::Hide
+        )
+        .expect(WRITE_ERR_MSG);
         self.set_screen();
-        write!(self.buf, "{}{}", termion::cursor::Goto((self.cursor.cx + 1).try_into().unwrap(), (self.cursor.cy + 1).try_into().unwrap()), termion::cursor::Show).expect(WRITE_ERR_MSG); 
+        write!(
+            self.buf,
+            "{}{}",
+            termion::cursor::Goto(
+                (self.cursor.cx + 1).try_into().unwrap(),
+                (self.cursor.cy + 1).try_into().unwrap()
+            ),
+            termion::cursor::Show
+        )
+        .expect(WRITE_ERR_MSG);
 
         self.buf.flush()
     }
@@ -175,4 +240,5 @@ impl RenderDriver {
 }
 
 const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
-const KEYBIND_HELP_MSG: &'static str = "HELP: Use Ctrl+Q to exit.";
+const KEYBIND_HELP_MSG: &'static str = "HELP: Ctrl+Q - exit | Ctrl+S - save";
+const SAVE_SUCCESS_MSG: &'static str = "Wrote file to disk.";

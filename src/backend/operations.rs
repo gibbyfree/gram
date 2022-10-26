@@ -1,4 +1,8 @@
-use std::{io::{Error, Write}, fs::{File, OpenOptions}};
+use crate::data::enums::StatusContent;
+use std::{
+    fs::{File, OpenOptions},
+    io::{Error, Write},
+};
 
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -55,10 +59,16 @@ impl OperationsHandler {
         if self.file_name.eq("[Untitled]") {
             f = File::create("filler_file_name.txt").unwrap();
         } else {
-            f = OpenOptions::new().write(true).truncate(true).open(name).unwrap();
+            f = OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(name)
+                .unwrap();
         }
 
         f.write_all(output.as_bytes()).unwrap();
+        self.render
+            .update_status_message(StatusContent::SaveSuccess);
     }
 
     // WRAPPER METHODS //
@@ -80,6 +90,7 @@ impl OperationsHandler {
     // Wrapper around RenderDriver's set_file_name.
     pub fn set_file_name(&mut self, name: &str) {
         self.render.set_file_name(name);
+        self.file_name = name.to_string();
     }
 
     // Wrapper around RenderDriver's tick_screen.

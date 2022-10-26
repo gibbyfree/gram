@@ -1,7 +1,7 @@
+use crate::data::enums::{Direction, InputEvent};
 use std::io::stdin;
 use termion::event::Key;
 use termion::input::TermRead;
-use crate::data::enums::{InputEvent, Direction};
 
 // Functions for reading and processing key inputs.
 

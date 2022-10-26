@@ -14,7 +14,7 @@ use std::{
 pub struct RenderController {
     cursor: CursorHandler,
     operations: OperationsHandler,
-    file_name: String
+    file_name: String,
 }
 
 impl RenderController {

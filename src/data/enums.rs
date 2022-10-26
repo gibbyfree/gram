@@ -20,3 +20,11 @@ pub enum Direction {
     Left,
     Right,
 }
+
+// Status Content. Used to classify the Content of a StatusMessage.
+// Help - Keybind help message shown on launch
+// SaveSuccess - Shown on file write success
+pub enum StatusContent {
+    Help,
+    SaveSuccess,
+}
