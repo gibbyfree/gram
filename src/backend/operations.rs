@@ -25,6 +25,11 @@ impl OperationsHandler {
         }
     }
 
+    // Insert a given character at the current cursor position.
+    // If the current line was modified, its data is replaced in the RenderDrive to contain the new character.
+    // If this is a new line, an empty string is the base for any insertion.
+    // Graphemes are used in inserting the new character, since this is the best representation of a human-readable
+    // character in a text editor.
     pub fn process_write(&mut self, cursor: CursorState, c: char) {
         let data: &Vec<TextRow> = self.render.get_text();
         let idx = cursor.cy as usize;
@@ -33,10 +38,9 @@ impl OperationsHandler {
             row_text = &data[idx].raw_text;
         }
 
-        // break into graphemes, insert char, put back to string
-        // if we are starting insertion at the very end of the line, add a space
         let mut g = row_text.graphemes(true).collect::<Vec<&str>>();
         let mut tmp = [0u8; 4];
+        // if we are starting insertion at the very end of the line, add a space
         if g.len() < cursor.cx.try_into().unwrap() {
             g.insert(g.len(), " ");
         }
@@ -46,6 +50,11 @@ impl OperationsHandler {
         self.render.set_text_at_index(idx, updated);
     }
 
+    // Writes to a file at a given file name.
+    // Collates all of RenderDriver's data to a string. 
+    // If a file name was set (i.e. arg mode), data is written to the modified file. 
+    // If a file name was not set, data is written to a new file. Filler file name for now.
+    // After the file is written, update RenderDriver's status message to reflect the successful disk write.
     pub fn write_file(&mut self, name: &str) {
         let data: &Vec<TextRow> = self.render.get_text();
         let mut output = String::from("");
