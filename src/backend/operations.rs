@@ -51,33 +51,35 @@ impl OperationsHandler {
     }
 
     // Writes to a file at a given file name.
-    // Collates all of RenderDriver's data to a string. 
-    // If a file name was set (i.e. arg mode), data is written to the modified file. 
+    // Collates all of RenderDriver's data to a string.
+    // If a file name was set (i.e. arg mode), data is written to the modified file.
     // If a file name was not set, data is written to a new file. Filler file name for now.
     // After the file is written, update RenderDriver's status message to reflect the successful disk write.
     pub fn write_file(&mut self, name: &str) {
-        let data: &Vec<TextRow> = self.render.get_text();
-        let mut output = String::from("");
+        if !self.render.is_quitting() {
+            let data: &Vec<TextRow> = self.render.get_text();
+            let mut output = String::from("");
 
-        for t in data {
-            output.push_str(&t.raw_text);
-            output.push_str("\n");
+            for t in data {
+                output.push_str(&t.raw_text);
+                output.push_str("\n");
+            }
+
+            let mut f: File;
+            if self.file_name.eq("[Untitled]") {
+                f = File::create("filler_file_name.txt").unwrap();
+            } else {
+                f = OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .open(name)
+                    .unwrap();
+            }
+
+            f.write_all(output.as_bytes()).unwrap();
+            self.render
+                .update_status_message(StatusContent::SaveSuccess);
         }
-
-        let mut f: File;
-        if self.file_name.eq("[Untitled]") {
-            f = File::create("filler_file_name.txt").unwrap();
-        } else {
-            f = OpenOptions::new()
-                .write(true)
-                .truncate(true)
-                .open(name)
-                .unwrap();
-        }
-
-        f.write_all(output.as_bytes()).unwrap();
-        self.render
-            .update_status_message(StatusContent::SaveSuccess);
     }
 
     // WRAPPER METHODS //
@@ -108,8 +110,8 @@ impl OperationsHandler {
     }
 
     // Wrapper around RenderDriver's exit.
-    pub fn exit(&mut self) {
-        self.render.exit();
+    pub fn exit(&mut self) -> bool {
+        self.render.exit()
     }
 
     // Wrapper around RenderDriver's complete_init.

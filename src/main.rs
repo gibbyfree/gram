@@ -51,7 +51,12 @@ impl Gram {
             }
 
             match evt {
-                Some(InputEvent::Quit) => break,
+                Some(InputEvent::Quit) => {
+                    let shutdown = self.ctrl.exit();
+                    if shutdown {
+                        break;
+                    }
+                },
                 Some(InputEvent::Save) => self.ctrl.write_file(),
                 Some(InputEvent::Move(d)) => self.ctrl.queue_move(d),
                 Some(InputEvent::Page(d)) => self.ctrl.queue_scroll(d),

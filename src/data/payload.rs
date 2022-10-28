@@ -82,3 +82,34 @@ impl fmt::Display for StatusMessage {
         write!(f, "{}", self.content)
     }
 }
+
+// Represents the Dirty flag status for the renderer.
+// Contains the dirty flag, and # of consecutive force quit inputs.
+pub struct DirtyStatus {
+    pub dirty: bool,
+    pub quit_count: i16,
+}
+
+impl DirtyStatus {
+    pub fn new() -> Self {
+        Self {
+            dirty: false,
+            quit_count: 0,
+        }
+    }
+
+    // Various (probably pointless) 'utility methods' for messing around with DirtyStatus fields.
+    pub fn redirty(&mut self) {
+        self.dirty = true;
+        self.quit_count = 0;
+    }
+
+    pub fn reset(&mut self) {
+        self.quit_count = 0;
+    }
+
+    pub fn clean(&mut self) {
+        self.dirty = false;
+        self.quit_count = 0;
+    }
+}

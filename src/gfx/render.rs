@@ -1,7 +1,7 @@
 use crate::{
     data::{
         enums::StatusContent,
-        payload::{CursorState, StatusMessage},
+        payload::{CursorState, StatusMessage, DirtyStatus},
         textrow::TextRow,
     },
     utils,
@@ -25,7 +25,7 @@ pub struct RenderDriver {
     file_name: String,
     status_info: String,
     status_message: StatusMessage,
-    dirty: bool,
+    mod_status: DirtyStatus,
 }
 
 impl RenderDriver {
@@ -43,7 +43,7 @@ impl RenderDriver {
             file_name: "".to_string(),
             status_info: "".to_string(),
             status_message: StatusMessage::new(),
-            dirty: false,
+            mod_status: DirtyStatus::new(),
         }
     }
 
@@ -142,7 +142,7 @@ impl RenderDriver {
         } else {
             file = format!("{}", self.file_name); // i hate this
         }
-        if self.dirty {
+        if self.mod_status.dirty {
             file = file + " (modified)";
         }
 
@@ -154,25 +154,32 @@ impl RenderDriver {
     // Final set-up method for the renderer. Sets status info and status message.
     pub fn complete_init(&mut self) {
         self.set_status_info();
-        self.status_message
-            .set_content(KEYBIND_HELP_MSG.to_string());
+        self.update_status_message(StatusContent::Help);
     }
 
+    // Updates the status message of the editor based on a given StatusContent.
+    // Each StatusContent type sets a content messge, and refreshes the status info bar.
     pub fn update_status_message(&mut self, t: StatusContent) {
         match t {
             StatusContent::SaveSuccess => {
-                self.dirty = false;
+                self.mod_status.clean();
                 self.status_message
                     .set_content(SAVE_SUCCESS_MSG.to_string());
                 self.set_status_info();
             }
-            StatusContent::Help => (),
+            StatusContent::DirtyWarning(q) => {
+                let msg = format!("Warning! File has unsaved changes. Press Ctrl+Q {} more times to quit.", 3 - q);
+                self.status_message.set_content(msg);
+                self.set_status_info();
+            }
+            StatusContent::Help => self.status_message.set_content(KEYBIND_HELP_MSG.to_string()),
         }
     }
 
     // Updates this RenderDriver's current CursorState.
     pub fn update_cursor_state(&mut self, state: CursorState) {
         self.cursor = state;
+        self.mod_status.reset();
     }
 
     // Returns a reference to this RenderDriver's current text data.
@@ -201,8 +208,13 @@ impl RenderDriver {
             }
             self.text.push(TextRow::new(row));
         }
-        self.dirty = true;
+        self.mod_status.redirty();
         self.set_status_info();
+    }
+
+    // Whether or not the user is currently inputting force quits.
+    pub fn is_quitting(&mut self) -> bool {
+        return self.mod_status.quit_count > 0
     }
 
     // Saves the file name of the opened file.
@@ -212,15 +224,24 @@ impl RenderDriver {
     }
 
     // Exits the editor, clearing the entire window and resetting the cursor position.
-    pub fn exit(&mut self) {
-        write!(
-            self.buf,
-            "{}{}",
-            termion::cursor::Goto(1, 1),
-            termion::clear::All
-        )
-        .expect(WRITE_ERR_MSG);
-        self.buf.flush().unwrap();
+    // If the editor is currently dirty, and the user has not force quit enough times, render a warning and do nothing.
+    // Confirm shutdown only with sufficient force quits, or with a clean editor.
+    pub fn exit(&mut self) -> bool {
+        if self.mod_status.dirty && self.mod_status.quit_count < 3 {
+            self.update_status_message(StatusContent::DirtyWarning(self.mod_status.quit_count));
+            self.mod_status.quit_count += 1;
+            false
+        } else {
+            write!(
+                self.buf,
+                "{}{}",
+                termion::cursor::Goto(1, 1),
+                termion::clear::All
+            )
+            .expect(WRITE_ERR_MSG);
+            self.buf.flush().unwrap();
+            true
+        }
     }
 
     // Ticks the screen by moving the cursor out of the way and hiding it, then drawing, then replacing the cursor and unhiding.

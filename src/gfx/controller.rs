@@ -110,9 +110,10 @@ impl RenderController {
     }
 
     // Tell the RenderDriver to shutdown the editor.
-    pub fn exit(&mut self) {
-        self.write_file();
-        self.operations.exit();
+    // Return a bool that represents whether to shutdown the editor.
+    pub fn exit(&mut self) -> bool {
+        // self.write_file(); autosave disabled for now i guess
+        self.operations.exit() 
     }
 
     // Tell the RenderDriver to continue processing.

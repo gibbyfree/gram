@@ -24,7 +24,9 @@ pub enum Direction {
 // Status Content. Used to classify the Content of a StatusMessage.
 // Help - Keybind help message shown on launch
 // SaveSuccess - Shown on file write success
+// DirtyWarning - Shown when closing a modified, unsaved file. i16 for # of force quit inputs.
 pub enum StatusContent {
     Help,
     SaveSuccess,
+    DirtyWarning(i16),
 }
