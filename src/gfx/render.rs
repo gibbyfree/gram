@@ -25,6 +25,7 @@ pub struct RenderDriver {
     file_name: String,
     status_info: String,
     status_message: StatusMessage,
+    dirty: bool,
 }
 
 impl RenderDriver {
@@ -42,6 +43,7 @@ impl RenderDriver {
             file_name: "".to_string(),
             status_info: "".to_string(),
             status_message: StatusMessage::new(),
+            dirty: false,
         }
     }
 
@@ -132,7 +134,7 @@ impl RenderDriver {
 
     // Sets the static status info of this file -- file name and # of lines in the file.
     fn set_status_info(&mut self) {
-        let file: String;
+        let mut file: String;
         if self.file_name.eq("") {
             file = "[Untitled]".to_string();
         } else if self.file_name.len() > 20 {
@@ -140,6 +142,10 @@ impl RenderDriver {
         } else {
             file = format!("{}", self.file_name); // i hate this
         }
+        if self.dirty {
+            file = file + " (modified)";
+        }
+
         let lines = (self.text.len() + 1).to_string() + " lines";
         self.status_info = format!("{} - {}", file, lines);
     }
@@ -154,9 +160,12 @@ impl RenderDriver {
 
     pub fn update_status_message(&mut self, t: StatusContent) {
         match t {
-            StatusContent::SaveSuccess => self
-                .status_message
-                .set_content(SAVE_SUCCESS_MSG.to_string()),
+            StatusContent::SaveSuccess => {
+                self.dirty = false;
+                self.status_message
+                    .set_content(SAVE_SUCCESS_MSG.to_string());
+                self.set_status_info();
+            }
             StatusContent::Help => (),
         }
     }
@@ -192,6 +201,7 @@ impl RenderDriver {
             }
             self.text.push(TextRow::new(row));
         }
+        self.dirty = true;
         self.set_status_info();
     }
 

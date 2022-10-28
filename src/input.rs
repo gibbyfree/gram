@@ -29,7 +29,7 @@ pub fn proc_key() -> Option<InputEvent> {
         Key::PageDown => return Some(InputEvent::Page(Direction::Down)),
         Key::Home => return Some(InputEvent::Page(Direction::Left)),
         Key::End => return Some(InputEvent::Page(Direction::Right)),
-        Key::Char(Char) => return Some(InputEvent::Write(Char)),
+        Key::Char(char) => return Some(InputEvent::Write(char)),
         _ => return None,
     };
 }
