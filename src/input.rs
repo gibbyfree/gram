@@ -21,6 +21,7 @@ pub fn proc_key() -> Option<InputEvent> {
     match k {
         Key::Ctrl('q') => return Some(InputEvent::Quit),
         Key::Ctrl('s') => return Some(InputEvent::Save),
+        Key::Ctrl('h') => return Some(InputEvent::Delete(Direction::Left)),
         Key::Up => return Some(InputEvent::Move(Direction::Up)),
         Key::Left => return Some(InputEvent::Move(Direction::Left)),
         Key::Down => return Some(InputEvent::Move(Direction::Down)),
@@ -29,6 +30,8 @@ pub fn proc_key() -> Option<InputEvent> {
         Key::PageDown => return Some(InputEvent::Page(Direction::Down)),
         Key::Home => return Some(InputEvent::Page(Direction::Left)),
         Key::End => return Some(InputEvent::Page(Direction::Right)),
+        Key::Backspace => return Some(InputEvent::Delete(Direction::Left)),
+        Key::Delete => return Some(InputEvent::Delete(Direction::Right)),
         Key::Char(char) => return Some(InputEvent::Write(char)),
         _ => return None,
     };

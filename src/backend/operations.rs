@@ -1,4 +1,4 @@
-use crate::data::enums::StatusContent;
+use crate::data::enums::{Direction, StatusContent};
 use std::{
     fs::{File, OpenOptions},
     io::{Error, Write},
@@ -25,20 +25,33 @@ impl OperationsHandler {
         }
     }
 
-    // Insert a given character at the current cursor position.
     // If the current line was modified, its data is replaced in the RenderDrive to contain the new character.
     // If this is a new line, an empty string is the base for any insertion.
+    fn get_graphemes_at_line(&mut self, idx: usize) -> Vec<&str> {
+        let data: &mut Vec<TextRow> = self.render.get_text();
+        if data.len() <= idx.try_into().unwrap() {
+            data.push(TextRow::new("".to_string()));
+        }
+
+        let row_text = &data[idx].raw_text;
+        row_text.graphemes(true).collect::<Vec<&str>>()
+    }
+
+    pub fn process_delete(&mut self, cursor: CursorState, d: Direction) {
+        let idx = cursor.cy as usize;
+        let mut g = self.get_graphemes_at_line(idx);
+
+        g.remove((cursor.cx - 1) as usize);
+        let updated: String = g.into_iter().map(String::from).collect();
+        self.render.set_text_at_index(idx, updated);
+    }
+
+    // Insert a given character at the current cursor position.
     // Graphemes are used in inserting the new character, since this is the best representation of a human-readable
     // character in a text editor.
     pub fn process_write(&mut self, cursor: CursorState, c: char) {
-        let data: &Vec<TextRow> = self.render.get_text();
         let idx = cursor.cy as usize;
-        let mut row_text: &String = &"".to_string();
-        if data.len() > idx.try_into().unwrap() {
-            row_text = &data[idx].raw_text;
-        }
-
-        let mut g = row_text.graphemes(true).collect::<Vec<&str>>();
+        let mut g = self.get_graphemes_at_line(idx);
         let mut tmp = [0u8; 4];
         // if we are starting insertion at the very end of the line, add a space
         if g.len() < cursor.cx.try_into().unwrap() {

@@ -70,6 +70,15 @@ impl RenderController {
         self.operations.update_cursor_state(self.cursor.get_state());
     }
 
+    pub fn queue_delete(&mut self, d: Direction) {
+        if self.cursor.cx > 0 {
+            self.operations.process_delete(self.cursor.get_state(), d);
+            self.cursor
+                .handle_cursor(true, self.cursor.cx - 1, self.operations.get_text());
+            self.operations.update_cursor_state(self.cursor.get_state());
+        }
+    }
+
     // Read the contents of a file at a given path, line-by-line.
     // Pass the filename to the renderer, for use in the status bar. (Save a copy of it, for when we want to save the file later.)
     // Pass this vec of strings to the next method, for upload to the RenderDriver.
@@ -113,7 +122,7 @@ impl RenderController {
     // Return a bool that represents whether to shutdown the editor.
     pub fn exit(&mut self) -> bool {
         // self.write_file(); autosave disabled for now i guess
-        self.operations.exit() 
+        self.operations.exit()
     }
 
     // Tell the RenderDriver to continue processing.

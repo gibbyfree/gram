@@ -61,6 +61,7 @@ impl Gram {
                 Some(InputEvent::Move(d)) => self.ctrl.queue_move(d),
                 Some(InputEvent::Page(d)) => self.ctrl.queue_scroll(d),
                 Some(InputEvent::Write(c)) => self.ctrl.queue_write(c),
+                Some(InputEvent::Delete(d)) => self.ctrl.queue_delete(d),
                 None => (),
             }
         }

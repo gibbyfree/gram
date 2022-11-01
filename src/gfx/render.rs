@@ -183,7 +183,7 @@ impl RenderDriver {
     }
 
     // Returns a reference to this RenderDriver's current text data.
-    pub fn get_text(&mut self) -> &Vec<TextRow> {
+    pub fn get_text(&mut self) -> &mut Vec<TextRow> {
         &mut self.text
     }
 
