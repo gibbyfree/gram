@@ -46,7 +46,7 @@ impl OperationsHandler {
         let mut target = g.len();
         match d {
             Direction::Left => target = (cursor.cx - 1) as usize,
-            Direction::Right => target = (cursor.cx + 1) as usize,
+            Direction::Right => target = cursor.cx as usize,
             _ => (),
         }
 
@@ -54,7 +54,7 @@ impl OperationsHandler {
             g.remove(target);
             let updated: String = g.into_iter().map(String::from).collect();
             self.render.set_text_at_index(idx, updated);
-        }
+        } 
     }
 
     // Insert a given character at the current cursor position.
