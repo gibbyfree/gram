@@ -194,6 +194,10 @@ impl RenderDriver {
         self.complete_init();
     }
 
+    pub fn delete_row(&mut self, idx: usize) {
+        self.text.remove(idx);
+    }
+
     // Update the text contained at a given row index.
     // If this is a modification, insert the new text at the row.
     // If this is an insert, add whitespace lines as needed and then push the new text to the end.

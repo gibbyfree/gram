@@ -25,15 +25,20 @@ impl OperationsHandler {
         }
     }
 
-    // If the current line was modified, its data is replaced in the RenderDrive to contain the new character.
-    // If this is a new line, an empty string is the base for any insertion.
-    fn get_graphemes_at_line(&mut self, idx: usize) -> Vec<&str> {
+    // Get the raw text String of a textrow at the given index.
+    // If a textrow does not exist at that index, we assume an empty string is the base of any insertion, and return it.
+    fn get_string_at_line(&mut self, idx: usize) -> &String {
         let data: &mut Vec<TextRow> = self.render.get_text();
         if data.len() <= idx.try_into().unwrap() {
             data.push(TextRow::new("".to_string()));
         }
+        &data[idx].raw_text
+    }
 
-        let row_text = &data[idx].raw_text;
+    // Get the row text in String form, then convert it to graphemes, then collect to a Vec.
+    // Mostly a wrapper at this point.
+    fn get_graphemes_at_line(&mut self, idx: usize) -> Vec<&str> {
+        let row_text = self.get_string_at_line(idx);
         row_text.graphemes(true).collect::<Vec<&str>>()
     }
 
@@ -55,6 +60,15 @@ impl OperationsHandler {
             let updated: String = g.into_iter().map(String::from).collect();
             self.render.set_text_at_index(idx, updated);
         } 
+    }
+
+    pub fn process_wrap_delete(&mut self, cursor: CursorState, d: Direction) {
+        let idx = cursor.cy as usize;
+        let curr_row = self.get_string_at_line(idx).to_owned();
+        let adj_row = self.get_string_at_line(idx - 1).to_owned();
+        
+        self.render.delete_row(idx);
+        self.render.set_text_at_index(idx - 1, format!("{}{}", adj_row, curr_row));
     }
 
     // Insert a given character at the current cursor position.

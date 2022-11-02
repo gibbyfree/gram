@@ -78,6 +78,10 @@ impl RenderController {
                     self.cursor
                         .handle_cursor(true, self.cursor.cx - 1, self.operations.get_text());
                     self.operations.update_cursor_state(self.cursor.get_state());
+                } else if self.cursor.cx == 0 && self.cursor.cy > 0 {
+                    self.operations.process_wrap_delete(self.cursor.get_state(), d);
+                    self.cursor.handle_cursor(false, self.cursor.cy - 1, self.operations.get_text());
+                    self.operations.update_cursor_state(self.cursor.get_state())
                 }
             },
             Direction::Right => {
