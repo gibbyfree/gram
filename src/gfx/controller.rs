@@ -71,11 +71,19 @@ impl RenderController {
     }
 
     pub fn queue_delete(&mut self, d: Direction) {
-        if self.cursor.cx > 0 {
-            self.operations.process_delete(self.cursor.get_state(), d);
-            self.cursor
-                .handle_cursor(true, self.cursor.cx - 1, self.operations.get_text());
-            self.operations.update_cursor_state(self.cursor.get_state());
+        match d {
+            Direction::Left => {
+                if self.cursor.cx > 0 {
+                    self.operations.process_delete(self.cursor.get_state(), d);
+                    self.cursor
+                        .handle_cursor(true, self.cursor.cx - 1, self.operations.get_text());
+                    self.operations.update_cursor_state(self.cursor.get_state());
+                }
+            },
+            Direction::Right => {
+                self.operations.process_delete(self.cursor.get_state(), d);
+            }
+            _ => (),
         }
     }
 

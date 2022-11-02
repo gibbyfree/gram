@@ -37,13 +37,24 @@ impl OperationsHandler {
         row_text.graphemes(true).collect::<Vec<&str>>()
     }
 
+    // Deletes a character at the current cursor position.
+    // Given direction determines whether the character before or after the cursor is deleted.
     pub fn process_delete(&mut self, cursor: CursorState, d: Direction) {
         let idx = cursor.cy as usize;
         let mut g = self.get_graphemes_at_line(idx);
 
-        g.remove((cursor.cx - 1) as usize);
-        let updated: String = g.into_iter().map(String::from).collect();
-        self.render.set_text_at_index(idx, updated);
+        let mut target = g.len();
+        match d {
+            Direction::Left => target = (cursor.cx - 1) as usize,
+            Direction::Right => target = (cursor.cx + 1) as usize,
+            _ => (),
+        }
+
+        if g.len() > target {
+            g.remove(target);
+            let updated: String = g.into_iter().map(String::from).collect();
+            self.render.set_text_at_index(idx, updated);
+        }
     }
 
     // Insert a given character at the current cursor position.
