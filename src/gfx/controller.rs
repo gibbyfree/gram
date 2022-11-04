@@ -70,6 +70,7 @@ impl RenderController {
         self.operations.update_cursor_state(self.cursor.get_state());
     }
 
+    // Queues a delete in the operation handler, and updates the cursor upon delete.
     pub fn queue_delete(&mut self, d: Direction) {
         match d {
             Direction::Left => {
@@ -85,6 +86,9 @@ impl RenderController {
                 }
             },
             Direction::Right => {
+                // currently, the controller isn't wired to conditionally call process_wrap_delete directly
+                // use of this method relies on an understanding of the current line length,
+                // and the operations handler is probably better suited to process this for now.
                 self.operations.process_delete(self.cursor.get_state(), d);
             }
             _ => (),

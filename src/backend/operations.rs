@@ -59,16 +59,50 @@ impl OperationsHandler {
             g.remove(target);
             let updated: String = g.into_iter().map(String::from).collect();
             self.render.set_text_at_index(idx, updated);
-        } 
+        } else if target == cursor.cx.try_into().unwrap()
+            && (cursor.cy + 1) < self.render.get_text().len().try_into().unwrap()
+        {
+            self.process_wrap_delete(cursor, d);
+        }
     }
 
+    // Processes a "wrapping delete". A wrapping delete is a delete that results in the deletion of an adjacent row.
+    // Wrapping deletes can go forwards or backwards (from DEL or BS).
+    // Operation is basically the same in both directions, but with different indices.
     pub fn process_wrap_delete(&mut self, cursor: CursorState, d: Direction) {
         let idx = cursor.cy as usize;
         let curr_row = self.get_string_at_line(idx).to_owned();
-        let adj_row = self.get_string_at_line(idx - 1).to_owned();
-        
-        self.render.delete_row(idx);
-        self.render.set_text_at_index(idx - 1, format!("{}{}", adj_row, curr_row));
+
+        // conditionally determine relevant indices
+        // maybe these definitions can be refactored out to some kind of const struct
+        let mut adj_row_idx = idx;
+        let mut del_row_idx = idx;
+        let mut insert_idx = idx;
+        match d {
+            Direction::Left => {
+                adj_row_idx = idx - 1;
+                del_row_idx = idx;
+                insert_idx = idx - 1;
+            },
+            Direction::Right => {
+                adj_row_idx = idx + 1;
+                del_row_idx = idx + 1;
+                insert_idx = idx;
+            },
+            _ => (),
+        }
+
+        // get new row text
+        let adj_row = self.get_string_at_line(adj_row_idx).to_owned();
+        let new_row_text = if adj_row_idx == (idx + 1) {
+            format!("{}{}", curr_row, adj_row)
+        } else {
+            format!("{}{}", adj_row, curr_row)
+        };
+
+        // delete, insert merged text
+        self.render.delete_row(del_row_idx);
+        self.render.set_text_at_index(insert_idx, new_row_text);
     }
 
     // Insert a given character at the current cursor position.
