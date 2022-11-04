@@ -42,6 +42,10 @@ impl OperationsHandler {
         row_text.graphemes(true).collect::<Vec<&str>>()
     }
 
+    pub fn get_length_at_line(&mut self, idx: usize) -> usize {
+        self.get_graphemes_at_line(idx).len()
+    }
+
     // Deletes a character at the current cursor position.
     // Given direction determines whether the character before or after the cursor is deleted.
     pub fn process_delete(&mut self, cursor: CursorState, d: Direction) {

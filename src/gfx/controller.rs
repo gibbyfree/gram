@@ -71,6 +71,8 @@ impl RenderController {
     }
 
     // Queues a delete in the operation handler, and updates the cursor upon delete.
+    // The logic for this operation is a bit more complex with a standard delete (deleting to the left of the cursor)
+    // since this involves more fine-grained manipulation of the cursor post-delete.
     pub fn queue_delete(&mut self, d: Direction) {
         match d {
             Direction::Left => {
@@ -80,14 +82,23 @@ impl RenderController {
                         .handle_cursor(true, self.cursor.cx - 1, self.operations.get_text());
                     self.operations.update_cursor_state(self.cursor.get_state());
                 } else if self.cursor.cx == 0 && self.cursor.cy > 0 {
-                    self.operations.process_wrap_delete(self.cursor.get_state(), d);
-                    self.cursor.handle_cursor(false, self.cursor.cy - 1, self.operations.get_text());
+                    let old_adj_len = self
+                        .operations
+                        .get_length_at_line((self.cursor.cy - 1) as usize);
+                    self.operations
+                        .process_wrap_delete(self.cursor.get_state(), d);
+
+                    // update cursor to jump to previous line, set cx to end of previous line's original contents
+                    let data = self.operations.get_text();
+                    self.cursor.handle_cursor(false, self.cursor.cy - 1, data);
+                    self.cursor
+                        .handle_cursor(true, old_adj_len.try_into().unwrap(), data);
                     self.operations.update_cursor_state(self.cursor.get_state())
                 }
-            },
+            }
             Direction::Right => {
                 // currently, the controller isn't wired to conditionally call process_wrap_delete directly
-                // use of this method relies on an understanding of the current line length,
+                // use of this process_wrap_delete relies on an understanding of the current line length,
                 // and the operations handler is probably better suited to process this for now.
                 self.operations.process_delete(self.cursor.get_state(), d);
             }
