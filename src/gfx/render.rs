@@ -198,6 +198,10 @@ impl RenderDriver {
         self.text.remove(idx);
     }
 
+    pub fn insert_row(&mut self, idx: usize, text: TextRow) {
+        self.text.insert(idx, text);
+    }
+
     // Update the text contained at a given row index.
     // If this is a modification, insert the new text at the row.
     // If this is an insert, add whitespace lines as needed and then push the new text to the end.

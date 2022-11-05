@@ -109,6 +109,17 @@ impl OperationsHandler {
         self.render.set_text_at_index(insert_idx, new_row_text);
     }
 
+    // Inputs a newline. Split the string at the current cursor, pushes everything ahead of the cursor to the newline.
+    pub fn process_newline(&mut self, cursor: CursorState) {
+        let y = cursor.cy as usize;
+        let x = cursor.cx as usize;
+        let str = self.get_string_at_line(y).to_owned();
+        let (left, right) = str.split_at(x);
+
+        self.render.set_text_at_index(y, left.to_string());
+        self.render.insert_row(y + 1, TextRow::new(right.to_string()));
+    }
+
     // Insert a given character at the current cursor position.
     // Graphemes are used in inserting the new character, since this is the best representation of a human-readable
     // character in a text editor.

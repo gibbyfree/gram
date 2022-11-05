@@ -63,11 +63,22 @@ impl RenderController {
 
     // From a Write InputEvent's character, input the given character at the current cursor position.
     // Increment cursor with each write. Update CursorState for the RenderDriver.
+    // Conditonally processes newline inputs if a newline char is input.
     pub fn queue_write(&mut self, c: char) {
-        self.operations.process_write(self.cursor.get_state(), c);
-        self.cursor
-            .handle_cursor(true, self.cursor.cx + 1, self.operations.get_text());
-        self.operations.update_cursor_state(self.cursor.get_state());
+        match c {
+            '\n' => {
+                self.operations.process_newline(self.cursor.get_state());
+                self.cursor.handle_cursor(false, self.cursor.cy + 1, self.operations.get_text());
+                self.cursor.handle_cursor(true, 0, self.operations.get_text());
+                self.operations.update_cursor_state(self.cursor.get_state());
+            }
+            _ => {
+                self.operations.process_write(self.cursor.get_state(), c);
+                self.cursor
+                    .handle_cursor(true, self.cursor.cx + 1, self.operations.get_text());
+                self.operations.update_cursor_state(self.cursor.get_state());
+            }
+        }
     }
 
     // Queues a delete in the operation handler, and updates the cursor upon delete.
