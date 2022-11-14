@@ -69,7 +69,7 @@ impl RenderController {
             '\n' => {
                 self.operations.process_newline(self.cursor.get_state());
                 self.cursor.handle_cursor(false, self.cursor.cy + 1, self.operations.get_text());
-                self.cursor.handle_cursor(true, 0, self.operations.get_text());
+                self.cursor.handle_scroll(true, true, self.operations.get_text());
                 self.operations.update_cursor_state(self.cursor.get_state());
             }
             _ => {
