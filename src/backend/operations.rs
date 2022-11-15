@@ -131,7 +131,7 @@ impl OperationsHandler {
         if g.len() < cursor.cx.try_into().unwrap() {
             g.insert(g.len(), " ");
         }
-        g.insert(cursor.cx as usize, c.encode_utf8(&mut tmp));
+        g.insert((cursor.cx + cursor.col_offset) as usize, c.encode_utf8(&mut tmp));
         let updated: String = g.into_iter().map(String::from).collect();
 
         self.render.set_text_at_index(idx, updated);

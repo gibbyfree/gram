@@ -141,7 +141,13 @@ impl CursorHandler {
                 has_wrapped = true;
             }
         }
-        if val != -1 && val != (self.cols - 1).try_into().unwrap() && !has_wrapped {
+        if val > self.cols.try_into().unwrap() && val <= data[self.cy as usize].length() + 1 {
+            // "teleport case" -- impossible to receive this val otherwise
+            self.col_offset = val - (self.cols - 5) as i16;
+            self.cx = val - self.col_offset;
+            has_wrapped = true;
+        }
+        if val != -1 && val < (self.cols - 1).try_into().unwrap() && !has_wrapped {
             // not going offscreen
             self.cx = val;
         }
