@@ -54,8 +54,8 @@ impl OperationsHandler {
 
         let mut target = g.len();
         match d {
-            Direction::Left => target = (cursor.cx - 1) as usize,
-            Direction::Right => target = cursor.cx as usize,
+            Direction::Left => target = (cursor.cx - 1 + cursor.col_offset) as usize,
+            Direction::Right => target = (cursor.cx + cursor.col_offset) as usize,
             _ => (),
         }
 
