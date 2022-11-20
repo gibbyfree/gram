@@ -63,7 +63,7 @@ impl OperationsHandler {
             g.remove(target);
             let updated: String = g.into_iter().map(String::from).collect();
             self.render.set_text_at_index(idx, updated);
-        } else if target == cursor.cx.try_into().unwrap()
+        } else if target == (cursor.cx + cursor.col_offset).try_into().unwrap()
             && (cursor.cy + 1) < self.render.get_text().len().try_into().unwrap()
         {
             self.process_wrap_delete(cursor, d);
