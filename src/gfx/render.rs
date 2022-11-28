@@ -1,7 +1,7 @@
 use crate::{
     data::{
         enums::StatusContent,
-        payload::{CursorState, StatusMessage, DirtyStatus},
+        payload::{CursorState, DirtyStatus, StatusMessage},
         textrow::TextRow,
     },
     utils,
@@ -42,7 +42,7 @@ impl RenderDriver {
             cursor,
             file_name: "".to_string(),
             status_info: "".to_string(),
-            status_message: StatusMessage::new(),
+            status_message: StatusMessage::new(false),
             mod_status: DirtyStatus::new(),
         }
     }
@@ -160,6 +160,7 @@ impl RenderDriver {
     // Updates the status message of the editor based on a given StatusContent.
     // Each StatusContent type sets a content messge, and refreshes the status info bar.
     pub fn update_status_message(&mut self, t: StatusContent) {
+        self.status_message.clean();
         match t {
             StatusContent::SaveSuccess => {
                 self.mod_status.clean();
@@ -168,11 +169,22 @@ impl RenderDriver {
                 self.set_status_info();
             }
             StatusContent::DirtyWarning(q) => {
-                let msg = format!("Warning! File has unsaved changes. Press Ctrl+Q {} more times to quit.", 3 - q);
+                let msg = format!(
+                    "Warning! File has unsaved changes. Press Ctrl+Q {} more times to quit.",
+                    3 - q
+                );
                 self.status_message.set_content(msg);
                 self.set_status_info();
             }
-            StatusContent::Help => self.status_message.set_content(KEYBIND_HELP_MSG.to_string()),
+            StatusContent::Help => self
+                .status_message
+                .set_content(KEYBIND_HELP_MSG.to_string()),
+            StatusContent::SaveAs(f) => {
+                self.status_message.live_forever_for_now();
+                let msg = format!("Save as: {} (Use ESC to cancel)", f);
+                self.status_message.set_content(msg);
+            }
+            StatusContent::SaveAbort => self.status_message.set_content(SAVE_ABORT_MSG.to_string()),
         }
     }
 
@@ -222,7 +234,7 @@ impl RenderDriver {
 
     // Whether or not the user is currently inputting force quits.
     pub fn is_quitting(&mut self) -> bool {
-        return self.mod_status.quit_count > 0
+        return self.mod_status.quit_count > 0;
     }
 
     // Saves the file name of the opened file.
@@ -281,3 +293,4 @@ impl RenderDriver {
 const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
 const KEYBIND_HELP_MSG: &'static str = "HELP: Ctrl+Q - exit | Ctrl+S - save";
 const SAVE_SUCCESS_MSG: &'static str = "Wrote file to disk.";
+const SAVE_ABORT_MSG: &'static str = "Save aborted.";

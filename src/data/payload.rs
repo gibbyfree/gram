@@ -1,5 +1,5 @@
-use std::time::Instant;
 use std::fmt;
+use std::time::Instant;
 
 // Cursor State. Represents the state of the CursorHandler at a moment in time.
 // Contains essential CursorHandler fields, for use by the renderer.
@@ -29,7 +29,13 @@ impl CursorState {
     }
 
     // Update the values of this CursorState and return the updated CursorState.
-    pub fn update(&mut self, new_cx: i16, new_cy: i16, new_roffset: i16, new_coffset: i16) -> CursorState {
+    pub fn update(
+        &mut self,
+        new_cx: i16,
+        new_cy: i16,
+        new_roffset: i16,
+        new_coffset: i16,
+    ) -> CursorState {
         self.cx = new_cx;
         self.cy = new_cy;
         self.row_offset = new_roffset;
@@ -38,27 +44,28 @@ impl CursorState {
     }
 }
 
-
 // Status Message. Represents the most recent status message displayed by the renderer.
 // Contains the text of the message, and a timestamp representing when the message was fired.
 // Choosing to use an Instant here instead of SystemTime, as all we really need is a way to compare to Instant::now() on render.
+// An immortal StatusMessage is basically a Prompt -- its sent time is irrelevant to its render.
 pub struct StatusMessage {
     pub content: String,
     pub last_sent: Option<Instant>,
+    immortal: bool,
 }
 
 impl StatusMessage {
-    // Set to a keybind help message to begin with.
-    // last_sent is set to right now
-    pub fn new() -> Self {
+    // Set with an empty string to start with. last_sent is set to right now.
+    // Must specify whether this is a mortal or immortal status.
+    pub fn new(immortal: bool) -> Self {
         Self {
             content: "".to_string(),
             last_sent: None,
+            immortal,
         }
     }
 
-    // Update the content of the latest status message.
-    // We also update last_sent here.
+    // Update the content of the latest status message. We also update last_sent here.
     // Technically we could wait to update the timestamp until the renderer actually draws the message.
     // Since we're working with seconds instead of milliseconds here, I think it's fine to set the timestamp here (for now).
     pub fn set_content(&mut self, content: String) {
@@ -68,11 +75,24 @@ impl StatusMessage {
 
     // Returns whether or not the renderer should print this status message.
     // We print a status message if it's been live for less than 5 seconds.
+    // If this is an immortal status message, we always print it.
     pub fn should_print(&mut self) -> bool {
+        if self.immortal {
+            return true;
+        }
         match self.last_sent {
             None => false,
-            Some(t) => t.elapsed().as_secs() <= 5
+            Some(t) => t.elapsed().as_secs() <= 5,
         }
+    }
+
+    pub fn clean(&mut self) {
+        self.immortal = false;
+        self.last_sent = None;
+    }
+
+    pub fn live_forever_for_now(&mut self) {
+        self.immortal = true;
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::data::enums::{Direction, StatusContent};
+use crate::data::enums::{Direction, PromptResult, StatusContent};
 use std::{
     fs::{File, OpenOptions},
     io::{Error, Write},
@@ -7,6 +7,7 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
+    backend::prompt::PromptProcessor,
     data::{payload::CursorState, textrow::TextRow},
     gfx::render::RenderDriver,
 };
@@ -15,6 +16,7 @@ use crate::{
 pub struct OperationsHandler {
     render: RenderDriver,
     file_name: String,
+    prompt: PromptProcessor,
 }
 
 impl OperationsHandler {
@@ -22,6 +24,7 @@ impl OperationsHandler {
         Self {
             render,
             file_name: "[Untitled]".to_string(),
+            prompt: PromptProcessor::new(),
         }
     }
 
@@ -40,6 +43,16 @@ impl OperationsHandler {
     fn get_graphemes_at_line(&mut self, idx: usize) -> Vec<&str> {
         let row_text = self.get_string_at_line(idx);
         row_text.graphemes(true).collect::<Vec<&str>>()
+    }
+
+    fn check_and_update_prompt_status(&mut self) {
+        let status = &self.prompt.status;
+        if let Some(content) = status {
+            if let StatusContent::SaveAs(str) = content {
+                self.render
+                    .update_status_message(StatusContent::SaveAs(str.to_string()));
+            }
+        }
     }
 
     pub fn get_length_at_line(&mut self, idx: usize) -> usize {
@@ -87,12 +100,12 @@ impl OperationsHandler {
                 adj_row_idx = idx - 1;
                 del_row_idx = idx;
                 insert_idx = idx - 1;
-            },
+            }
             Direction::Right => {
                 adj_row_idx = idx + 1;
                 del_row_idx = idx + 1;
                 insert_idx = idx;
-            },
+            }
             _ => (),
         }
 
@@ -117,12 +130,12 @@ impl OperationsHandler {
         let (left, right) = str.split_at(x);
 
         self.render.set_text_at_index(y, left.to_string());
-        self.render.insert_row(y + 1, TextRow::new(right.to_string()));
+        self.render
+            .insert_row(y + 1, TextRow::new(right.to_string()));
     }
 
     // Insert a given character at the current cursor position.
-    // Graphemes are used in inserting the new character, since this is the best representation of a human-readable
-    // character in a text editor.
+    // Graphemes are used in inserting the new character, since this is the best representation of a human-readable character in a text editor.
     pub fn process_write(&mut self, cursor: CursorState, c: char) {
         let idx = cursor.cy as usize;
         let mut g = self.get_graphemes_at_line(idx);
@@ -131,10 +144,97 @@ impl OperationsHandler {
         if g.len() < cursor.cx.try_into().unwrap() {
             g.insert(g.len(), " ");
         }
-        g.insert((cursor.cx + cursor.col_offset) as usize, c.encode_utf8(&mut tmp));
+        g.insert(
+            (cursor.cx + cursor.col_offset) as usize,
+            c.encode_utf8(&mut tmp),
+        );
         let updated: String = g.into_iter().map(String::from).collect();
 
         self.render.set_text_at_index(idx, updated);
+    }
+
+    // Tears down all data stored in PromptProc, and clears whatever StatusMessage is currently rendered.
+    // Currently does this by sending SaveAbort, but this will probably be changed when more prompt interactions are added.
+    pub fn wipe_prompt(&mut self) {
+        self.prompt.flush();
+        self.render.update_status_message(StatusContent::SaveAbort);
+    }
+
+    // Processes current data collected in the prompt.
+    // For a SaveAs prompt, user data should be used to set a new file name.
+    // Sends a PromptResult to the controler, so that it can wrap-up any other processes as needed.
+    pub fn process_prompt_confirm(&mut self) -> Option<PromptResult> {
+        let status = &self.prompt.status;
+        if let Some(content) = status {
+            if let StatusContent::SaveAs(str) = content {
+                self.file_name = str.to_string();
+                self.render.set_file_name(str);
+                self.render
+                    .update_status_message(StatusContent::SaveSuccess);
+                return Some(PromptResult::FileRename(str.to_string()));
+            }
+        }
+        None
+    }
+
+    // Processes writes to the prompt. It's very similar to processing writes to render,
+    // except the only text data for a prompt is a single TextRow. It's also necessary to update
+    // render's status message based on the new prompt text content.
+    pub fn process_prompt(&mut self, c: char) {
+        let mut g = self
+            .prompt
+            .text
+            .raw_text
+            .graphemes(true)
+            .collect::<Vec<&str>>();
+        let mut tmp = [0u8; 4];
+        g.insert((self.prompt.cx) as usize, c.encode_utf8(&mut tmp));
+        let updated: String = g.into_iter().map(String::from).collect();
+
+        self.prompt.set_text(updated);
+        self.check_and_update_prompt_status();
+        self.process_prompt_cursor(1);
+    }
+
+    // Handles the prompt's basic cursor functionality. The prompt's text field is a single row,
+    // and the cursor should adjust according to input. Currently, not really worrying about scrolling for
+    // super long file names or anything like that.
+    // x represents the # that should be added onto cx. Can be negative to represent backwards movement.
+    pub fn process_prompt_cursor(&mut self, x: i16) {
+        let idx = self.prompt.cx + x;
+        let g = self
+            .prompt
+            .text
+            .raw_text
+            .graphemes(true)
+            .collect::<Vec<&str>>();
+
+        if idx >= 0 && idx as usize <= g.len() {
+            self.prompt.set_cursor(idx);
+        }
+    }
+
+    pub fn process_prompt_delete(&mut self, left: bool) {
+        let mut g = self
+            .prompt
+            .text
+            .raw_text
+            .graphemes(true)
+            .collect::<Vec<&str>>();
+        let idx = self.prompt.cx as usize;
+
+        if left && idx > 0 && (idx - 1) < g.len() {
+            g.remove(idx - 1);
+        } else if !left && idx < g.len() {
+            g.remove(idx + 1);
+        }
+        let updated: String = g.into_iter().map(String::from).collect();
+
+        self.prompt.set_text(updated);
+        self.check_and_update_prompt_status();
+        if left {
+            self.process_prompt_cursor(-1);
+        }
     }
 
     // Writes to a file at a given file name.
@@ -153,8 +253,9 @@ impl OperationsHandler {
             }
 
             let mut f: File;
-            if self.file_name.eq("[Untitled]") {
-                f = File::create("filler_file_name.txt").unwrap();
+            if !name.contains(".txt") {
+                let path = format!("{}.txt", name);
+                f = File::create(path).unwrap();
             } else {
                 f = OpenOptions::new()
                     .write(true)
@@ -166,6 +267,20 @@ impl OperationsHandler {
             f.write_all(output.as_bytes()).unwrap();
             self.render
                 .update_status_message(StatusContent::SaveSuccess);
+        }
+    }
+
+    pub fn check_file_name(&mut self) -> bool {
+        let save_as = self.file_name.eq("[Untitled]");
+        if save_as {
+            self.prompt.flush();
+            self.render
+                .update_status_message(StatusContent::SaveAs("".to_string()));
+            self.prompt
+                .set_status(StatusContent::SaveAs("".to_string()));
+            true
+        } else {
+            false
         }
     }
 
