@@ -1,4 +1,7 @@
-use crate::data::enums::{Direction, PromptResult, StatusContent};
+use crate::data::{
+    enums::{Direction, InputEvent, PromptResult, StatusContent},
+    payload::{SearchItem},
+};
 use std::{
     fs::{File, OpenOptions},
     io::{Error, Write},
@@ -45,18 +48,52 @@ impl OperationsHandler {
         row_text.graphemes(true).collect::<Vec<&str>>()
     }
 
-    fn check_and_update_prompt_status(&mut self) {
+    // Meant to be called after we've done something with PromptProc. We check its current status,
+    // and if it's a data-bearing status (save-as prompt, find prompt) then we push this data for render.
+    // Might return a PromptResult if this is an incremental prompt. Honestly, this doesn't have to be done here,
+    // but I'd rather not have to sus out StatusContent type more than once for a single user input.
+    fn check_and_update_prompt_status(&mut self) -> Option<PromptResult> {
         let status = &self.prompt.status;
         if let Some(content) = status {
             if let StatusContent::SaveAs(str) = content {
                 self.render
                     .update_status_message(StatusContent::SaveAs(str.to_string()));
+                None
+            } else if let StatusContent::Find(s) = content {
+                self.render
+                    .update_status_message(StatusContent::Find(s.to_string()));
+                Some(PromptResult::TextSearch(s.to_string()))
+            } else {
+                None
             }
+        } else {
+            None
         }
     }
 
+    // Returns the length at a given line, in graphemes (best understood as a human readable character in this context).
+    // Nothing about this is very operations-y, but this is the easiest way to surface line lengths to the controller.
     pub fn get_length_at_line(&mut self, idx: usize) -> usize {
         self.get_graphemes_at_line(idx).len()
+    }
+
+    // Initializes the PromptProc based on a given InputEvent.
+    // Prompt is flushed, initial status is set, and render's status is updated if necessary.
+    pub fn initialize_prompt(&mut self, kind: InputEvent) {
+        match kind {
+            InputEvent::Save => {
+                self.prompt.flush();
+                self.prompt
+                    .set_status(StatusContent::SaveAs("".to_string()));
+                self.check_and_update_prompt_status();
+            }
+            InputEvent::Find => {
+                self.prompt.flush();
+                self.prompt.set_status(StatusContent::Find("".to_string()));
+                self.check_and_update_prompt_status();
+            }
+            _ => (),
+        }
     }
 
     // Deletes a character at the current cursor position.
@@ -177,10 +214,26 @@ impl OperationsHandler {
         None
     }
 
+    pub fn search_text(&mut self, query: &String) -> Vec<SearchItem> {
+        let mut res: Vec<SearchItem> = Vec::new();
+        let data: &mut Vec<TextRow> = self.render.get_text();
+
+        for (i, row) in data.iter().enumerate() {
+            let indices = row.find_idx_at_substr(&query);
+            for j in indices {
+                res.push(SearchItem::new(j.0, i));
+            }
+        }
+        
+        res
+    }
+
     // Processes writes to the prompt. It's very similar to processing writes to render,
     // except the only text data for a prompt is a single TextRow. It's also necessary to update
     // render's status message based on the new prompt text content.
-    pub fn process_prompt(&mut self, c: char) {
+    // If this prompt interaction is related to an incremental prompt (like find), it might return a PromptResult to
+    // pass relevant data back to the controller.
+    pub fn process_prompt(&mut self, c: char) -> Option<PromptResult> {
         let mut g = self
             .prompt
             .text
@@ -192,8 +245,9 @@ impl OperationsHandler {
         let updated: String = g.into_iter().map(String::from).collect();
 
         self.prompt.set_text(updated);
-        self.check_and_update_prompt_status();
+        let res = self.check_and_update_prompt_status();
         self.process_prompt_cursor(1);
+        res
     }
 
     // Handles the prompt's basic cursor functionality. The prompt's text field is a single row,
@@ -214,6 +268,8 @@ impl OperationsHandler {
         }
     }
 
+    // Handles deletion in the prompt. Since text doesn't wrap in the prompt, this is a much simpler implementation than deletion in the editor.
+    // Trundles along the cursor depending on which direction we're deleting from.
     pub fn process_prompt_delete(&mut self, left: bool) {
         let mut g = self
             .prompt
@@ -271,17 +327,7 @@ impl OperationsHandler {
     }
 
     pub fn check_file_name(&mut self) -> bool {
-        let save_as = self.file_name.eq("[Untitled]");
-        if save_as {
-            self.prompt.flush();
-            self.render
-                .update_status_message(StatusContent::SaveAs("".to_string()));
-            self.prompt
-                .set_status(StatusContent::SaveAs("".to_string()));
-            true
-        } else {
-            false
-        }
+        self.file_name.eq("[Untitled]")
     }
 
     // WRAPPER METHODS //

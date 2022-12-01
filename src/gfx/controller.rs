@@ -1,7 +1,8 @@
 use crate::{
     backend::{cursor::CursorHandler, operations::OperationsHandler},
     data::{
-        enums::{Direction, PromptResult, WriteMode},
+        enums::{Direction, PromptResult, WriteMode, InputEvent},
+        payload::{SearchItem},
         textrow::TextRow,
     },
     gfx::render::RenderDriver,
@@ -113,7 +114,19 @@ impl RenderController {
                     }
                 }
             }
-            (_, WriteMode::Prompt) => self.operations.process_prompt(c),
+            (_, WriteMode::Prompt) => {
+                let res = self.operations.process_prompt(c);
+                if let Some(pr) = res {
+                    if let PromptResult::TextSearch(str) = pr {
+                        let results = self.operations.search_text(&str);
+                        let item = results.get(0);
+                        if let Some(i) = item {
+                            self.cursor.handle_cursor(false, i.cy, self.operations.get_text());
+                            self.cursor.handle_cursor(true, i.cx, self.operations.get_text());
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -182,7 +195,18 @@ impl RenderController {
         if !save_as {
             self.operations.write_file(&self.file_name);
         } else {
+            self.start_prompt(InputEvent::Save)
+        }
+    }
+
+    // Wrapper for setting the editor to prompt mode, and initializing the PromptProc through the OH.
+    // Using InputEvent to distinguish prompt interaction kinds. Technically StatusContent could be used, but this
+    // is more complex than necessary -- we only need to know what the user is trying to do right now.
+    // It's impossible to toggle between prompt kinds. ESC to cancel or die. (for now).
+    pub fn start_prompt(&mut self, kind: InputEvent) {
+        if !matches!(self.mode, WriteMode::Prompt) {
             self.mode = WriteMode::Prompt;
+            self.operations.initialize_prompt(kind);
         }
     }
 

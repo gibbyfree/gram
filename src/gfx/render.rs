@@ -184,6 +184,11 @@ impl RenderDriver {
                 let msg = format!("Save as: {} (Use ESC to cancel)", f);
                 self.status_message.set_content(msg);
             }
+            StatusContent::Find(q) => {
+                self.status_message.live_forever_for_now();
+                let msg = format!("Search: {} (Use ESC to cancel)", q);
+                self.status_message.set_content(msg);
+            }
             StatusContent::SaveAbort => self.status_message.set_content(SAVE_ABORT_MSG.to_string()),
         }
     }

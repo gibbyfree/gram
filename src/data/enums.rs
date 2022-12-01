@@ -7,6 +7,7 @@
 // Write - Input a character into a line of text
 // Delete (Backspace / Del / Ctrl+H) - Delete a character in the line of text. Delete left or right of the cursor.
 // Cancel - Used for exiting any prompt interactions.
+// Find - Used to initialize a 'find' prompt interaction.
 pub enum InputEvent {
     Quit,
     Move(Direction),
@@ -15,6 +16,7 @@ pub enum InputEvent {
     Delete(Direction),
     Save,
     Cancel,
+    Find,
 }
 
 // Directions. Used to classify InputEvents.
@@ -32,6 +34,7 @@ pub enum Direction {
 // DirtyWarning - Shown when closing a modified, unsaved file. i16 for # of force quit inputs.
 // SaveAs - Shown when closing an unnamed file. String for user inputted file name.
 // SaveAbort - Shown when SaveAs is aborted.
+// Find - Shown when CTRL+F is used to search the opened file. String for user inputted query.
 #[derive(PartialEq)]
 pub enum StatusContent {
     Help,
@@ -39,6 +42,7 @@ pub enum StatusContent {
     DirtyWarning(i16),
     SaveAs(String),
     SaveAbort,
+    Find(String),
 }
 
 // Write Mode. Specifies different areas that we might process writes to.
@@ -51,6 +55,8 @@ pub enum WriteMode {
 
 // Prompt Result. Contains some kind of data for the OH to pass to the controller.
 // FileRename - Sent after a successful file rename. Contains the new file name.
+// TextSearch - Incremental. Sent on each query input. Contains the query.
 pub enum PromptResult {
     FileRename(String),
+    TextSearch(String),
 }

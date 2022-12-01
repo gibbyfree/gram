@@ -18,12 +18,15 @@ impl PromptProcessor {
         }
     }
 
-    // Updates status content according to presently input text.
+    // Updates status content according to any user input that has been received so far.
     fn update_status_content(&mut self) {
         let status = &self.status;
         if let Some(content) = status {
             if let StatusContent::SaveAs(_str) = content {
                 let new_status = StatusContent::SaveAs(self.text.raw_text.clone());
+                self.set_status(new_status);
+            } else if let StatusContent::Find(_str) = content {
+                let new_status = StatusContent::Find(self.text.raw_text.clone());
                 self.set_status(new_status);
             }
         }

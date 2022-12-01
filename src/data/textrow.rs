@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str::MatchIndices};
 use unicode_segmentation::UnicodeSegmentation;
 
 // TextRow. Represents a line of text in the editor.
@@ -39,10 +39,17 @@ impl TextRow {
         (self.raw_text.graphemes(true).count() as i16) + 1
     }
 
+    // Updates the text of a TextRow. To be honest I have no idea why it's like this LOL.
     pub fn update_text(&mut self, text: String) {
         let copy = text.clone();
         self.raw_text = text;
         self.text = copy;
+    }
+
+    // Returns a list of all indices in the row where a given substr begins.
+    // I have a feeling there's going to be something wrong with this method, since it's not using a grapheme representation.
+    pub fn find_idx_at_substr(&self, substr: &String) -> Vec<(usize, &str)> {
+        self.raw_text.match_indices(substr).collect::<Vec<(_, _)>>()
     }
 }
 

@@ -63,6 +63,7 @@ impl Gram {
                 Some(InputEvent::Write(c)) => self.ctrl.queue_write(c),
                 Some(InputEvent::Delete(d)) => self.ctrl.queue_delete(d),
                 Some(InputEvent::Cancel) => self.ctrl.exit_prompt(),
+                Some(InputEvent::Find) => self.ctrl.start_prompt(InputEvent::Find),
                 None => (),
             }
         }
