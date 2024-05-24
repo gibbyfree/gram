@@ -23,7 +23,7 @@ pub fn proc_key() -> Option<InputEvent> {
         Key::Ctrl('s') => return Some(InputEvent::Save),
         Key::Ctrl('h') => return Some(InputEvent::Delete(Direction::Left)),
         Key::Ctrl('f') => return Some(InputEvent::Find),
-        Key::Esc => return Some(InputEvent::Cancel),
+        Key::Char('/') => return Some(InputEvent::Cancel), // easier testing on my little keyboards 
         Key::Up => return Some(InputEvent::Move(Direction::Up)),
         Key::Left => return Some(InputEvent::Move(Direction::Left)),
         Key::Down => return Some(InputEvent::Move(Direction::Down)),

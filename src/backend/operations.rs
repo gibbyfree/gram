@@ -191,10 +191,15 @@ impl OperationsHandler {
     }
 
     // Tears down all data stored in PromptProc, and clears whatever StatusMessage is currently rendered.
-    // Currently does this by sending SaveAbort, but this will probably be changed when more prompt interactions are added.
     pub fn wipe_prompt(&mut self) {
+        let status = &self.prompt.status;
         self.prompt.flush();
-        self.render.update_status_message(StatusContent::SaveAbort);
+
+        if let Some(StatusContent::SaveAs(_)) = &self.prompt.status {
+            self.render.update_status_message(StatusContent::SaveAbort);
+        } else if let Some(StatusContent::Find(_)) = &self.prompt.status {
+            self.render.update_status_message(StatusContent::FindAbort);
+        }
     }
 
     // Processes current data collected in the prompt.

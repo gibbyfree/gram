@@ -123,6 +123,7 @@ impl RenderController {
                         if let Some(i) = item {
                             self.cursor.handle_cursor(false, i.cy, self.operations.get_text());
                             self.cursor.handle_cursor(true, i.cx, self.operations.get_text());
+                            self.operations.update_cursor_state(self.cursor.get_state());
                         }
                     }
                 }

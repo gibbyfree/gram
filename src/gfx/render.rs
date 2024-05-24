@@ -119,8 +119,6 @@ impl RenderDriver {
             if row_idx < self.text.len() as u16 {
                 let render_str = self.text[row_idx as usize].substring(self.cursor.col_offset);
                 writeln!(self.buf, "{}\r", render_str.truncate(self.cols)).expect(WRITE_ERR_MSG);
-            } else if row_idx == self.text.len() as u16 {
-                writeln!(self.buf, "\r").expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
             }
@@ -146,7 +144,7 @@ impl RenderDriver {
             file = file + " (modified)";
         }
 
-        let lines = (self.text.len() + 1).to_string() + " lines";
+        let lines = self.text.len().to_string() + " lines";
         self.status_info = format!("{} - {}", file, lines);
     }
 
@@ -190,6 +188,7 @@ impl RenderDriver {
                 self.status_message.set_content(msg);
             }
             StatusContent::SaveAbort => self.status_message.set_content(SAVE_ABORT_MSG.to_string()),
+            StatusContent::FindAbort => self.status_message.set_content("Find aborted.".to_string()),
         }
     }
 
@@ -296,6 +295,6 @@ impl RenderDriver {
 }
 
 const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
-const KEYBIND_HELP_MSG: &'static str = "HELP: Ctrl+Q - exit | Ctrl+S - save";
+const KEYBIND_HELP_MSG: &'static str = "HELP: Ctrl+Q - exit | Ctrl+S - save | Ctrl+F - find";
 const SAVE_SUCCESS_MSG: &'static str = "Wrote file to disk.";
 const SAVE_ABORT_MSG: &'static str = "Save aborted.";

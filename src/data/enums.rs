@@ -35,6 +35,7 @@ pub enum Direction {
 // SaveAs - Shown when closing an unnamed file. String for user inputted file name.
 // SaveAbort - Shown when SaveAs is aborted.
 // Find - Shown when CTRL+F is used to search the opened file. String for user inputted query.
+// FindAbort - Shown when Find is aborted.
 #[derive(PartialEq)]
 pub enum StatusContent {
     Help,
@@ -43,6 +44,7 @@ pub enum StatusContent {
     SaveAs(String),
     SaveAbort,
     Find(String),
+    FindAbort,
 }
 
 // Write Mode. Specifies different areas that we might process writes to.

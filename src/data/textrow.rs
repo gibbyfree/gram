@@ -49,7 +49,10 @@ impl TextRow {
     // Returns a list of all indices in the row where a given substr begins.
     // I have a feeling there's going to be something wrong with this method, since it's not using a grapheme representation.
     pub fn find_idx_at_substr(&self, substr: &String) -> Vec<(usize, &str)> {
-        self.raw_text.match_indices(substr).collect::<Vec<(_, _)>>()
+        let substr_len = substr.len();
+        self.raw_text.match_indices(substr)
+            .map(|(idx, match_str)| (idx + substr_len, match_str))
+            .collect::<Vec<(_, _)>>()
     }
 }
 
