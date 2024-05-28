@@ -188,7 +188,7 @@ impl RenderDriver {
                 self.status_message.set_content(msg);
             }
             StatusContent::SaveAbort => self.status_message.set_content(SAVE_ABORT_MSG.to_string()),
-            StatusContent::FindAbort => self.status_message.set_content("Find aborted.".to_string()),
+            StatusContent::PromptAbort => self.status_message.immortal = false,
         }
     }
 

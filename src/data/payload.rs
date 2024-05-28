@@ -51,7 +51,7 @@ impl CursorState {
 pub struct StatusMessage {
     pub content: String,
     pub last_sent: Option<Instant>,
-    immortal: bool,
+    pub immortal: bool,
 }
 
 impl StatusMessage {
