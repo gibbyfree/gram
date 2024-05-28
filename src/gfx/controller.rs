@@ -165,8 +165,34 @@ impl RenderController {
                 // and the operations handler is probably better suited to process this for now.
                 self.operations.process_delete(self.cursor.get_state(), d);
             }
-            (Direction::Left, WriteMode::Prompt) => self.operations.process_prompt_delete(true),
-            (Direction::Right, WriteMode::Prompt) => self.operations.process_prompt_delete(false),
+            (Direction::Left, WriteMode::Prompt) => { 
+                let res = self.operations.process_prompt_delete(true);
+                if let Some(pr) = res {
+                    if let PromptResult::TextSearch(str) = pr {
+                        let results = self.operations.search_text(&str);
+                        let item = results.get(0);
+                        if let Some(i) = item {
+                            self.cursor.handle_cursor(false, i.cy, self.operations.get_text());
+                            self.cursor.handle_cursor(true, i.cx, self.operations.get_text());
+                            self.operations.update_cursor_state(self.cursor.get_state());
+                        }
+                    }
+                }
+            }
+            (Direction::Right, WriteMode::Prompt) => { 
+                let res = self.operations.process_prompt_delete(false);
+                if let Some(pr) = res {
+                    if let PromptResult::TextSearch(str) = pr {
+                        let results = self.operations.search_text(&str);
+                        let item = results.get(0);
+                        if let Some(i) = item {
+                            self.cursor.handle_cursor(false, i.cy, self.operations.get_text());
+                            self.cursor.handle_cursor(true, i.cx, self.operations.get_text());
+                            self.operations.update_cursor_state(self.cursor.get_state());
+                        }
+                    }
+                }
+            }
             _ => (),
         }
     }

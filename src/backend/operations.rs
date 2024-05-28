@@ -274,7 +274,7 @@ impl OperationsHandler {
 
     // Handles deletion in the prompt. Since text doesn't wrap in the prompt, this is a much simpler implementation than deletion in the editor.
     // Trundles along the cursor depending on which direction we're deleting from.
-    pub fn process_prompt_delete(&mut self, left: bool) {
+    pub fn process_prompt_delete(&mut self, left: bool) -> Option<PromptResult> {
         let mut g = self
             .prompt
             .text
@@ -295,6 +295,9 @@ impl OperationsHandler {
         if left {
             self.process_prompt_cursor(-1);
         }
+
+        let res = self.check_and_update_prompt_status();
+        res
     }
 
     // Writes to a file at a given file name.
