@@ -234,6 +234,7 @@ impl RenderController {
         if !matches!(self.mode, WriteMode::Prompt) {
             self.mode = WriteMode::Prompt;
             self.operations.initialize_prompt(kind);
+            self.cursor.save_state();
         }
     }
 
@@ -241,6 +242,8 @@ impl RenderController {
     pub fn exit_prompt(&mut self) {
         self.mode = WriteMode::Editor;
         self.operations.wipe_prompt();
+        self.cursor.restore_state();
+        self.operations.update_cursor_state(self.cursor.get_state());
     }
 
     // Parse a vec of strings into a vec of TextRows.

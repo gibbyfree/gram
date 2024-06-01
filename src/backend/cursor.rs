@@ -4,6 +4,7 @@ use crate::data::{payload::CursorState, textrow::TextRow};
 // cx and cy represent the x,y coords of the cursor's location.
 // row_offset and col_offset represent the degree to which the cursor is moved 'off-screen' on either axis.
 // Also stores the size of the terminal window (upon program initialization -- doesn't mutate) and its current state.
+// saved_state is used for saving and restoring the cursor's state (for prompt cancellation).
 pub struct CursorHandler {
     pub cx: i16,
     pub cy: i16,
@@ -12,6 +13,7 @@ pub struct CursorHandler {
     rows: u16,
     cols: u16,
     state: CursorState,
+    saved_state: CursorState,
 }
 
 impl CursorHandler {
@@ -25,6 +27,7 @@ impl CursorHandler {
             rows,
             cols,
             state: CursorState::new(),
+            saved_state: CursorState::new(),
         }
     }
 
@@ -38,6 +41,20 @@ impl CursorHandler {
         self.state = self
             .state
             .update(self.cx, self.cy, self.row_offset, self.col_offset);
+    }
+
+    // Backup the current cursor state. Used on prompt initialization.
+    pub fn save_state(&mut self) {
+        self.saved_state = self.state;
+    }
+
+    // Restore the current cursor state from the saved state. Used on prompt cancellation.
+    pub fn restore_state(&mut self) {
+        self.cx = self.saved_state.cx;
+        self.cy = self.saved_state.cy;
+        self.row_offset = self.saved_state.row_offset;
+        self.col_offset = self.saved_state.col_offset;
+        self.update_state();
     }
 
     // Entry point for handling a cursor event.
