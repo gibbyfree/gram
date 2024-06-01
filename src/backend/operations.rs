@@ -1,6 +1,6 @@
 use crate::data::{
     enums::{Direction, InputEvent, PromptResult, StatusContent},
-    payload::{SearchItem},
+    payload::SearchItem,
 };
 use std::{
     fs::{File, OpenOptions},
@@ -20,6 +20,8 @@ pub struct OperationsHandler {
     render: RenderDriver,
     file_name: String,
     prompt: PromptProcessor,
+    pub prompt_matches: Vec<SearchItem>,
+    prompt_match_idx: i32,
 }
 
 impl OperationsHandler {
@@ -28,6 +30,8 @@ impl OperationsHandler {
             render,
             file_name: "[Untitled]".to_string(),
             prompt: PromptProcessor::new(),
+            prompt_matches: Vec::new(),
+            prompt_match_idx: 0,
         }
     }
 
@@ -195,7 +199,10 @@ impl OperationsHandler {
         if let Some(StatusContent::SaveAs(_)) = &self.prompt.status {
             self.render.update_status_message(StatusContent::SaveAbort);
         } else if let Some(StatusContent::Find(_)) = &self.prompt.status {
-            self.render.update_status_message(StatusContent::PromptAbort);
+            self.render
+                .update_status_message(StatusContent::PromptAbort);
+            self.prompt_matches.clear();
+            self.prompt_match_idx = 0;
         }
 
         self.prompt.flush();
@@ -228,8 +235,19 @@ impl OperationsHandler {
                 res.push(SearchItem::new(j.0, i));
             }
         }
-        
+
+        self.prompt_matches = res.clone();
         res
+    }
+
+    // 1 = increase, -1 = decrease
+    pub fn update_prompt_match_idx(&mut self, i: i32) -> usize {
+        if (self.prompt_match_idx + i) < self.prompt_matches.len() as i32
+            && (self.prompt_match_idx + i) >= 0
+        {
+            self.prompt_match_idx += i;
+        }
+        self.prompt_match_idx as usize
     }
 
     // Processes writes to the prompt. It's very similar to processing writes to render,

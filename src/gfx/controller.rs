@@ -1,8 +1,8 @@
 use crate::{
     backend::{cursor::CursorHandler, operations::OperationsHandler},
     data::{
-        enums::{Direction, PromptResult, WriteMode, InputEvent},
-        payload::{SearchItem},
+        enums::{Direction, InputEvent, PromptResult, WriteMode},
+        payload::SearchItem,
         textrow::TextRow,
     },
     gfx::render::RenderDriver,
@@ -61,6 +61,18 @@ impl RenderController {
             }
             (Direction::Left, WriteMode::Prompt) => self.operations.process_prompt_cursor(-1),
             (Direction::Right, WriteMode::Prompt) => self.operations.process_prompt_cursor(1),
+            (Direction::Up, WriteMode::Prompt) => {
+                // Check last search result, if it exists
+                let idx = self.operations.update_prompt_match_idx(-1);
+                let i = self.operations.prompt_matches[idx];
+                self.update_prompt_match_cursor(&i);
+            }
+            (Direction::Down, WriteMode::Prompt) => {
+                // Check next search result, if it exists
+                let idx = self.operations.update_prompt_match_idx(1);
+                let i = self.operations.prompt_matches[idx];
+                self.update_prompt_match_cursor(&i);
+            }
             _ => (),
         }
         self.operations.update_cursor_state(self.cursor.get_state());
@@ -121,9 +133,7 @@ impl RenderController {
                         let results = self.operations.search_text(&str);
                         let item = results.get(0);
                         if let Some(i) = item {
-                            self.cursor.handle_cursor(false, i.cy, self.operations.get_text());
-                            self.cursor.handle_cursor(true, i.cx, self.operations.get_text());
-                            self.operations.update_cursor_state(self.cursor.get_state());
+                            self.update_prompt_match_cursor(i);
                         }
                     }
                 }
@@ -165,36 +175,40 @@ impl RenderController {
                 // and the operations handler is probably better suited to process this for now.
                 self.operations.process_delete(self.cursor.get_state(), d);
             }
-            (Direction::Left, WriteMode::Prompt) => { 
+            (Direction::Left, WriteMode::Prompt) => {
                 let res = self.operations.process_prompt_delete(true);
                 if let Some(pr) = res {
                     if let PromptResult::TextSearch(str) = pr {
                         let results = self.operations.search_text(&str);
                         let item = results.get(0);
                         if let Some(i) = item {
-                            self.cursor.handle_cursor(false, i.cy, self.operations.get_text());
-                            self.cursor.handle_cursor(true, i.cx, self.operations.get_text());
-                            self.operations.update_cursor_state(self.cursor.get_state());
+                            self.update_prompt_match_cursor(i);
                         }
                     }
                 }
             }
-            (Direction::Right, WriteMode::Prompt) => { 
+            (Direction::Right, WriteMode::Prompt) => {
                 let res = self.operations.process_prompt_delete(false);
                 if let Some(pr) = res {
                     if let PromptResult::TextSearch(str) = pr {
                         let results = self.operations.search_text(&str);
                         let item = results.get(0);
                         if let Some(i) = item {
-                            self.cursor.handle_cursor(false, i.cy, self.operations.get_text());
-                            self.cursor.handle_cursor(true, i.cx, self.operations.get_text());
-                            self.operations.update_cursor_state(self.cursor.get_state());
+                            self.update_prompt_match_cursor(i);
                         }
                     }
                 }
             }
             _ => (),
         }
+    }
+
+    fn update_prompt_match_cursor(&mut self, res: &SearchItem) {
+        self.cursor
+            .handle_cursor(false, res.cy, self.operations.get_text());
+        self.cursor
+            .handle_cursor(true, res.cx, self.operations.get_text());
+        self.operations.update_cursor_state(self.cursor.get_state());
     }
 
     // Read the contents of a file at a given path, line-by-line.
