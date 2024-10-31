@@ -111,16 +111,28 @@ impl RenderDriver {
             end = self.rows - 1;
         }
 
+        let digit_fg = color::Fg(color::Red);
+        let other_fg = color::Fg(color::White);
+
         for n in 0..end {
             // clear the current line
             write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
             let row_idx = n.wrapping_add(self.cursor.row_offset as u16);
             // render text if necessary, else render edge (or blank space for the final line)
             if row_idx < self.text.len() as u16 {
-                let render_str = self.text[row_idx as usize].substring(self.cursor.col_offset);
-                writeln!(self.buf, "{}\r", render_str.truncate(self.cols)).expect(WRITE_ERR_MSG);
+                let render_str = self.text[row_idx as usize].substring(self.cursor.col_offset).truncate(self.cols);
+                let tokens: Vec<&str> = render_str.raw_text.split_whitespace().collect();
+                for token in tokens {
+                    if token.parse::<f64>().is_ok() {
+                        write!(self.buf, "{}{}", digit_fg, token).expect(WRITE_ERR_MSG);
+                    } else {
+                        write!(self.buf, "{}{}", other_fg, token).expect(WRITE_ERR_MSG);
+                    }
+                    write!(self.buf, " ").expect(WRITE_ERR_MSG);
+                }
+                writeln!(self.buf, "\r{}", other_fg).expect(WRITE_ERR_MSG);
             } else {
-                writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
+                writeln!(self.buf, "~\r{}", other_fg).expect(WRITE_ERR_MSG);
             }
         }
         self.draw_status_bar();

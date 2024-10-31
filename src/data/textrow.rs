@@ -1,4 +1,4 @@
-use std::{fmt, str::MatchIndices};
+use std::fmt;
 use unicode_segmentation::UnicodeSegmentation;
 
 // TextRow. Represents a line of text in the editor.
@@ -39,11 +39,10 @@ impl TextRow {
         (self.raw_text.graphemes(true).count() as i16) + 1
     }
 
-    // Updates the text of a TextRow. To be honest I have no idea why it's like this LOL.
+    // Updates the text of a TextRow.
     pub fn update_text(&mut self, text: String) {
-        let copy = text.clone();
-        self.raw_text = text;
-        self.text = copy;
+        self.raw_text = text.clone();
+        self.text = text;
     }
 
     // Returns a list of all indices in the row where a given substr begins.
