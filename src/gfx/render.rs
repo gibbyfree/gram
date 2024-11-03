@@ -126,7 +126,7 @@ impl RenderDriver {
                 let render_str = self.text[row_idx as usize]
                     .substring(self.cursor.col_offset)
                     .truncate(self.cols);
-                let tokens: Vec<&str> = render_str.raw_text.split_whitespace().collect();
+                let tokens: Vec<String> = tokenize_preserve_whitespace(&render_str.raw_text);
                 let q = if let StatusContent::Find(q) = &self.status_kind {
                     q
                 } else {
@@ -317,6 +317,9 @@ fn determine_color(token: &str) -> color::Fg<color::Rgb> {
     if token.parse::<f64>().is_ok() {
         // digits are red
         color::Fg(Rgb(255, 0, 0))
+    } else if C_KEYWORDS.contains(&token) {
+        // keywords are yellow
+        color::Fg(Rgb(255, 255, 0))
     } else {
         // rest is white
         color::Fg(Rgb(255, 255, 255))
@@ -331,7 +334,7 @@ fn write_token(
 ) {
     let mut color = match fg {
         Some(f) => f,
-        None => determine_color(token),
+        None => determine_color(&token),
     };
 
     if in_string {
@@ -341,9 +344,38 @@ fn write_token(
     write!(buf, "{}{}", color, token).expect(WRITE_ERR_MSG);
 }
 
+fn tokenize_preserve_whitespace(s: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current_token = String::new();
+    let mut in_whitespace = s.chars().next().map_or(false, |c| c.is_whitespace());
+
+    for c in s.chars() {
+        if c.is_whitespace() {
+            if !in_whitespace {
+                tokens.push(current_token.clone());
+                current_token.clear();
+            }
+            in_whitespace = true;
+        } else {
+            if in_whitespace {
+                tokens.push(current_token.clone());
+                current_token.clear();
+            }
+            in_whitespace = false;
+        }
+        current_token.push(c);
+    }
+
+    if !current_token.is_empty() {
+        tokens.push(current_token);
+    }
+
+    tokens
+}
+
 fn process_tokens(
     buf: &mut BufWriter<RawTerminal<Stdout>>,
-    tokens: Vec<&str>,
+    tokens: Vec<String>,
     q: &str,
     file_name: &str,
 ) {
@@ -351,9 +383,17 @@ fn process_tokens(
     let find_fg = color::Fg(Rgb(0, 0, 255));
     let mut in_string = false;
 
+    // If the first token starts with '//', the line is a comment and should be colored cyan.
+    if !tokens.is_empty() && tokens[0].starts_with("//") {
+        for token in tokens {
+            write!(buf, "{}", color::Fg(Rgb(0, 255, 255))).expect(WRITE_ERR_MSG);
+            write!(buf, "{} ", token).expect(WRITE_ERR_MSG);
+        }
+        return;
+    }
+
     for token in tokens {
         if !q.is_empty() && token.contains(q) {
-            // Highlight
             let blue_start = token.find(q).unwrap();
             let blue_end = blue_start + q.len();
             let blue_token = &token[blue_start..blue_end];
@@ -374,8 +414,7 @@ fn process_tokens(
             {
                 // Determine fg via determine_color later
                 None
-            }
-            else {
+            } else {
                 // white
                 Some(color::Fg(Rgb(255, 255, 255)))
             };
@@ -384,20 +423,25 @@ fn process_tokens(
             if token.starts_with('"') || token.starts_with('\'') {
                 in_string = true;
             }
-            
-            write_token(buf, token, fg, in_string);
+
+            write_token(buf, &token, fg, in_string);
 
             // If we just wrote the end of a string, reset the in_string flag
             if token.ends_with('"') || token.ends_with('\'') {
                 in_string = false;
             }
         }
-        // Space between tokens
-        write!(buf, " ").expect(WRITE_ERR_MSG);
     }
 }
 
+// Const strings for error messages and help messages.
 const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
 const KEYBIND_HELP_MSG: &'static str = "HELP: Ctrl+Q - exit | Ctrl+S - save | Ctrl+F - find";
 const SAVE_SUCCESS_MSG: &'static str = "Wrote file to disk.";
 const SAVE_ABORT_MSG: &'static str = "Save aborted.";
+
+// Const lists for syntax highlighting.
+const C_KEYWORDS: &'static [&str] = &[
+    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union",
+    "typedef", "static", "enum", "class", "case",
+];

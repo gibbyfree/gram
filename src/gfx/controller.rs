@@ -265,7 +265,7 @@ impl RenderController {
     pub fn queue_text_upload(&mut self, vec: &Vec<String>) {
         let mut output: Vec<TextRow> = Vec::new();
         for text in vec {
-            let str = String::from(text.trim());
+            let str = String::from(text);
             let row = TextRow::new(str);
             output.push(row);
         }
