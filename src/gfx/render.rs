@@ -315,10 +315,10 @@ impl RenderDriver {
 
 fn determine_color(token: &str) -> color::Fg<color::Rgb> {
     if token.parse::<f64>().is_ok() {
-        // red
+        // digits are red
         color::Fg(Rgb(255, 0, 0))
     } else {
-        // white
+        // rest is white
         color::Fg(Rgb(255, 255, 255))
     }
 }
@@ -327,11 +327,17 @@ fn write_token(
     buf: &mut BufWriter<RawTerminal<Stdout>>,
     token: &str,
     fg: Option<color::Fg<color::Rgb>>,
+    in_string: bool,
 ) {
-    let color = match fg {
+    let mut color = match fg {
         Some(f) => f,
         None => determine_color(token),
     };
+
+    if in_string {
+        color = color::Fg(Rgb(255, 0, 255));
+    }
+
     write!(buf, "{}{}", color, token).expect(WRITE_ERR_MSG);
 }
 
@@ -343,6 +349,7 @@ fn process_tokens(
 ) {
     // blue
     let find_fg = color::Fg(Rgb(0, 0, 255));
+    let mut in_string = false;
 
     for token in tokens {
         if !q.is_empty() && token.contains(q) {
@@ -361,14 +368,29 @@ fn process_tokens(
             write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
         } else {
             // Syntax highlighting is only enabled for C files.
-            let fg = if file_name.ends_with(".c") {
+            let fg = if file_name.ends_with(".c")
+                || file_name.ends_with(".h")
+                || file_name.ends_with(".cpp")
+            {
                 // Determine fg via determine_color later
                 None
-            } else {
+            }
+            else {
                 // white
                 Some(color::Fg(Rgb(255, 255, 255)))
             };
-            write_token(buf, token, fg);
+
+            // Assume this is the beginning of a string
+            if token.starts_with('"') || token.starts_with('\'') {
+                in_string = true;
+            }
+            
+            write_token(buf, token, fg, in_string);
+
+            // If we just wrote the end of a string, reset the in_string flag
+            if token.ends_with('"') || token.ends_with('\'') {
+                in_string = false;
+            }
         }
         // Space between tokens
         write!(buf, " ").expect(WRITE_ERR_MSG);
