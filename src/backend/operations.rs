@@ -4,7 +4,7 @@ use crate::data::{
 };
 use std::{
     fs::{File, OpenOptions},
-    io::{Error, Write},
+    io::{Error, Write}, path::Path,
 };
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -334,8 +334,13 @@ impl OperationsHandler {
             }
 
             let mut f: File;
-            if !name.contains(".txt") {
-                let path = format!("{}.txt", name);
+            if !Path::new(name).exists() {
+                let extension = if !name.contains(".txt") && !name.contains(".c") {
+                    ".txt"
+                } else {
+                    ""
+                };
+                let path = format!("{}{}", name, extension);
                 f = File::create(path).unwrap();
             } else {
                 f = OpenOptions::new()
