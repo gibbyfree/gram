@@ -8,7 +8,7 @@ use crate::{
 };
 use std::io::{stdout, BufWriter, Error, Stdout, Write};
 use termion::{
-    color,
+    color::{self, Rgb},
     raw::{IntoRawMode, RawTerminal},
 };
 
@@ -26,6 +26,7 @@ pub struct RenderDriver {
     status_info: String,
     status_message: StatusMessage,
     mod_status: DirtyStatus,
+    status_kind: StatusContent,
 }
 
 impl RenderDriver {
@@ -44,6 +45,8 @@ impl RenderDriver {
             status_info: "".to_string(),
             status_message: StatusMessage::new(false),
             mod_status: DirtyStatus::new(),
+            // arbitrary default
+            status_kind: StatusContent::Help,
         }
     }
 
@@ -111,8 +114,8 @@ impl RenderDriver {
             end = self.rows - 1;
         }
 
-        let digit_fg = color::Fg(color::Red);
-        let other_fg = color::Fg(color::White);
+        // black
+        let other_fg = color::Fg(Rgb(255, 255, 255));
 
         for n in 0..end {
             // clear the current line
@@ -122,14 +125,12 @@ impl RenderDriver {
             if row_idx < self.text.len() as u16 {
                 let render_str = self.text[row_idx as usize].substring(self.cursor.col_offset).truncate(self.cols);
                 let tokens: Vec<&str> = render_str.raw_text.split_whitespace().collect();
-                for token in tokens {
-                    if token.parse::<f64>().is_ok() {
-                        write!(self.buf, "{}{}", digit_fg, token).expect(WRITE_ERR_MSG);
-                    } else {
-                        write!(self.buf, "{}{}", other_fg, token).expect(WRITE_ERR_MSG);
-                    }
-                    write!(self.buf, " ").expect(WRITE_ERR_MSG);
-                }
+                let q = if let StatusContent::Find(q) = &self.status_kind {
+                    q
+                } else {
+                    ""
+                };
+                process_tokens(&mut self.buf, tokens, &q);
                 writeln!(self.buf, "\r{}", other_fg).expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r{}", other_fg).expect(WRITE_ERR_MSG);
@@ -196,11 +197,15 @@ impl RenderDriver {
             }
             StatusContent::Find(q) => {
                 self.status_message.live_forever_for_now();
+                self.status_kind = StatusContent::Find(q.clone());
                 let msg = format!("Search: {} (Use ESC to cancel)", q);
                 self.status_message.set_content(msg);
             }
             StatusContent::SaveAbort => self.status_message.set_content(SAVE_ABORT_MSG.to_string()),
-            StatusContent::PromptAbort => self.status_message.immortal = false,
+            StatusContent::PromptAbort =>  {
+                self.status_message.immortal = false;
+                self.status_kind = StatusContent::Help;
+            }
         }
     }
 
@@ -304,6 +309,51 @@ impl RenderDriver {
         self.buf.flush()
     }
     // END OF PUBLIC METHODS //
+}
+
+fn determine_color(token: &str) -> color::Fg<color::Rgb> {
+    if token.parse::<f64>().is_ok() {
+        // red
+        color::Fg(Rgb(255, 0, 0))
+    } else {
+        // white
+        color::Fg(Rgb(255, 255, 255))
+    }
+}
+
+fn write_token(buf: &mut BufWriter<RawTerminal<Stdout>>, token: &str, fg: Option<color::Fg<color::Rgb>>) {
+    let color = match fg {
+        Some(f) => f,
+        None => determine_color(token),
+    };
+    write!(buf, "{}{}", color, token).expect(WRITE_ERR_MSG);
+}
+
+fn process_tokens(buf: &mut BufWriter<RawTerminal<Stdout>>, tokens: Vec<&str>, q: &str) {
+    // blue
+    let find_fg = color::Fg(Rgb(0, 0, 255));
+
+    for token in tokens {
+        if !q.is_empty() && token.contains(q) {
+            // Highlight
+            let blue_start = token.find(q).unwrap();
+            let blue_end = blue_start + q.len();
+            let blue_token = &token[blue_start..blue_end];
+            let before_token = &token[..blue_start];
+            let after_token = &token[blue_end..];
+            
+            let before_fg = determine_color(before_token);
+            let after_fg = determine_color(after_token);
+        
+            write!(buf, "{}{}", before_fg, before_token).expect(WRITE_ERR_MSG);
+            write!(buf, "{}{}", find_fg, blue_token).expect(WRITE_ERR_MSG);
+            write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
+        } else {
+            write_token(buf, token, None);
+        }
+        // Space between tokens
+        write!(buf, " ").expect(WRITE_ERR_MSG);
+    }
 }
 
 const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
