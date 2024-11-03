@@ -123,14 +123,16 @@ impl RenderDriver {
             let row_idx = n.wrapping_add(self.cursor.row_offset as u16);
             // render text if necessary, else render edge (or blank space for the final line)
             if row_idx < self.text.len() as u16 {
-                let render_str = self.text[row_idx as usize].substring(self.cursor.col_offset).truncate(self.cols);
+                let render_str = self.text[row_idx as usize]
+                    .substring(self.cursor.col_offset)
+                    .truncate(self.cols);
                 let tokens: Vec<&str> = render_str.raw_text.split_whitespace().collect();
                 let q = if let StatusContent::Find(q) = &self.status_kind {
                     q
                 } else {
                     ""
                 };
-                process_tokens(&mut self.buf, tokens, &q);
+                process_tokens(&mut self.buf, tokens, &q, &self.file_name);
                 writeln!(self.buf, "\r{}", other_fg).expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r{}", other_fg).expect(WRITE_ERR_MSG);
@@ -202,7 +204,7 @@ impl RenderDriver {
                 self.status_message.set_content(msg);
             }
             StatusContent::SaveAbort => self.status_message.set_content(SAVE_ABORT_MSG.to_string()),
-            StatusContent::PromptAbort =>  {
+            StatusContent::PromptAbort => {
                 self.status_message.immortal = false;
                 self.status_kind = StatusContent::Help;
             }
@@ -321,7 +323,11 @@ fn determine_color(token: &str) -> color::Fg<color::Rgb> {
     }
 }
 
-fn write_token(buf: &mut BufWriter<RawTerminal<Stdout>>, token: &str, fg: Option<color::Fg<color::Rgb>>) {
+fn write_token(
+    buf: &mut BufWriter<RawTerminal<Stdout>>,
+    token: &str,
+    fg: Option<color::Fg<color::Rgb>>,
+) {
     let color = match fg {
         Some(f) => f,
         None => determine_color(token),
@@ -329,7 +335,12 @@ fn write_token(buf: &mut BufWriter<RawTerminal<Stdout>>, token: &str, fg: Option
     write!(buf, "{}{}", color, token).expect(WRITE_ERR_MSG);
 }
 
-fn process_tokens(buf: &mut BufWriter<RawTerminal<Stdout>>, tokens: Vec<&str>, q: &str) {
+fn process_tokens(
+    buf: &mut BufWriter<RawTerminal<Stdout>>,
+    tokens: Vec<&str>,
+    q: &str,
+    file_name: &str,
+) {
     // blue
     let find_fg = color::Fg(Rgb(0, 0, 255));
 
@@ -341,15 +352,23 @@ fn process_tokens(buf: &mut BufWriter<RawTerminal<Stdout>>, tokens: Vec<&str>, q
             let blue_token = &token[blue_start..blue_end];
             let before_token = &token[..blue_start];
             let after_token = &token[blue_end..];
-            
+
             let before_fg = determine_color(before_token);
             let after_fg = determine_color(after_token);
-        
+
             write!(buf, "{}{}", before_fg, before_token).expect(WRITE_ERR_MSG);
             write!(buf, "{}{}", find_fg, blue_token).expect(WRITE_ERR_MSG);
             write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
         } else {
-            write_token(buf, token, None);
+            // Syntax highlighting is only enabled for C files.
+            let fg = if file_name.ends_with(".c") {
+                // Determine fg via determine_color later
+                None
+            } else {
+                // white
+                Some(color::Fg(Rgb(255, 255, 255)))
+            };
+            write_token(buf, token, fg);
         }
         // Space between tokens
         write!(buf, " ").expect(WRITE_ERR_MSG);
