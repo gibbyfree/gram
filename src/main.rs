@@ -21,6 +21,12 @@ pub struct Gram {
     ctrl: RenderController,
 }
 
+impl Default for Gram {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Gram {
     pub fn new() -> Self {
         Self {
@@ -37,7 +43,7 @@ impl Gram {
 
         let file_name = args().nth(1);
         match file_name {
-            None => (self.ctrl.finish_early()),
+            None => self.ctrl.finish_early(),
             Some(str) => self.ctrl.read_file(&str),
         };
 
@@ -45,9 +51,8 @@ impl Gram {
             err = self.ctrl.tick_screen();
             evt = input::proc_key();
 
-            match err {
-                Err(_) => break,
-                Ok(_) => (),
+            if err.is_err() {
+                break;
             }
 
             match evt {
@@ -56,7 +61,7 @@ impl Gram {
                     if shutdown {
                         break;
                     }
-                },
+                }
                 Some(InputEvent::Save) => self.ctrl.write_file(),
                 Some(InputEvent::Move(d)) => self.ctrl.queue_move(d),
                 Some(InputEvent::Page(d)) => self.ctrl.queue_scroll(d),

@@ -8,7 +8,7 @@ use crate::{
 };
 use std::io::{stdout, BufWriter, Error, Stdout, Write};
 use termion::{
-    color,
+    color::{self, Rgb},
     raw::{IntoRawMode, RawTerminal},
 };
 
@@ -26,6 +26,7 @@ pub struct RenderDriver {
     status_info: String,
     status_message: StatusMessage,
     mod_status: DirtyStatus,
+    status_kind: StatusContent,
 }
 
 impl RenderDriver {
@@ -44,6 +45,8 @@ impl RenderDriver {
             status_info: "".to_string(),
             status_message: StatusMessage::new(false),
             mod_status: DirtyStatus::new(),
+            // arbitrary default
+            status_kind: StatusContent::Help,
         }
     }
 
@@ -66,7 +69,7 @@ impl RenderDriver {
             .wrapping_sub(self.status_info.len().try_into().unwrap())
             .wrapping_sub((self.cursor.line_num().len()).try_into().unwrap())
         {
-            write!(self.buf, "{}", " ").unwrap();
+            write!(self.buf, " ").unwrap();
         }
 
         write!(self.buf, "{}\r", self.cursor.line_num()).unwrap();
@@ -75,7 +78,7 @@ impl RenderDriver {
     // Draws the status message, which appears below the status bar.
     // Only contains messages to the user for now.
     fn draw_status_message(&mut self) {
-        write!(self.buf, "\n").expect(WRITE_ERR_MSG);
+        writeln!(self.buf).expect(WRITE_ERR_MSG);
         write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
         write!(
             self.buf,
@@ -100,16 +103,19 @@ impl RenderDriver {
 
     // Sets the screen for this current tick.
     // Iterates through all rows of the window, clearing its old contents and replacing with either rendered text or a blank line.
-    // Uses row and col offset to determine which textrows are rendered, and how.
+    // Uses row and col offset to determine which textrows are rendered, and how - calls into process_tokens to render and color text.
     // Renders the status bar as the last line, unless there is a status message to print -- in which case we print both. Resets color afterwards.
     fn set_screen(&mut self) {
-        let end: u16;
         let render_message = self.status_message.should_print();
-        if render_message {
-            end = self.rows - 2;
+        let end: u16 = if render_message {
+            self.rows - 2
         } else {
-            end = self.rows - 1;
-        }
+            self.rows - 1
+        };
+
+        // black
+        let other_fg = color::Fg(Rgb(255, 255, 255));
+        let mut multiline_comment = false;
 
         for n in 0..end {
             // clear the current line
@@ -117,12 +123,22 @@ impl RenderDriver {
             let row_idx = n.wrapping_add(self.cursor.row_offset as u16);
             // render text if necessary, else render edge (or blank space for the final line)
             if row_idx < self.text.len() as u16 {
-                let render_str = self.text[row_idx as usize].substring(self.cursor.col_offset);
-                writeln!(self.buf, "{}\r", render_str.truncate(self.cols)).expect(WRITE_ERR_MSG);
-            } else if row_idx == self.text.len() as u16 {
-                writeln!(self.buf, "\r").expect(WRITE_ERR_MSG);
+                let render_str = self.text[row_idx as usize]
+                    .substring(self.cursor.col_offset)
+                    .truncate(self.cols);
+                let tokens: Vec<String> = tokenize_preserve_whitespace(&render_str.raw_text);
+
+                // If we're in a find state, we need to highlight the search query.
+                let q = if let StatusContent::Find(q) = &self.status_kind {
+                    q
+                } else {
+                    ""
+                };
+                multiline_comment =
+                    process_tokens(&mut self.buf, tokens, q, &self.file_name, multiline_comment);
+                writeln!(self.buf, "\r{}", other_fg).expect(WRITE_ERR_MSG);
             } else {
-                writeln!(self.buf, "~\r").expect(WRITE_ERR_MSG);
+                writeln!(self.buf, "~\r{}", other_fg).expect(WRITE_ERR_MSG);
             }
         }
         self.draw_status_bar();
@@ -140,13 +156,13 @@ impl RenderDriver {
         } else if self.file_name.len() > 20 {
             file = self.file_name[..20].to_string();
         } else {
-            file = format!("{}", self.file_name); // i hate this
+            file = self.file_name.to_string(); // i hate this
         }
         if self.mod_status.dirty {
-            file = file + " (modified)";
+            file += " (modified)";
         }
 
-        let lines = (self.text.len() + 1).to_string() + " lines";
+        let lines = self.text.len().to_string() + " lines";
         self.status_info = format!("{} - {}", file, lines);
     }
 
@@ -186,10 +202,15 @@ impl RenderDriver {
             }
             StatusContent::Find(q) => {
                 self.status_message.live_forever_for_now();
+                self.status_kind = StatusContent::Find(q.clone());
                 let msg = format!("Search: {} (Use ESC to cancel)", q);
                 self.status_message.set_content(msg);
             }
             StatusContent::SaveAbort => self.status_message.set_content(SAVE_ABORT_MSG.to_string()),
+            StatusContent::PromptAbort => {
+                self.status_message.immortal = false;
+                self.status_kind = StatusContent::Help;
+            }
         }
     }
 
@@ -239,7 +260,7 @@ impl RenderDriver {
 
     // Whether or not the user is currently inputting force quits.
     pub fn is_quitting(&mut self) -> bool {
-        return self.mod_status.quit_count > 0;
+        self.mod_status.quit_count > 0
     }
 
     // Saves the file name of the opened file.
@@ -295,7 +316,206 @@ impl RenderDriver {
     // END OF PUBLIC METHODS //
 }
 
-const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
-const KEYBIND_HELP_MSG: &'static str = "HELP: Ctrl+Q - exit | Ctrl+S - save";
-const SAVE_SUCCESS_MSG: &'static str = "Wrote file to disk.";
-const SAVE_ABORT_MSG: &'static str = "Save aborted.";
+// SYNTAX HIGHLIGHTING //
+
+// Determines the correct color for a token given its content.
+fn determine_color(token: &str) -> color::Fg<color::Rgb> {
+    if token.parse::<f64>().is_ok() {
+        // digits are red
+        color::Fg(Rgb(255, 0, 0))
+    } else if C_KEYWORDS.contains(&token) {
+        // keywords are yellow
+        color::Fg(Rgb(255, 255, 0))
+    } else if C_TYPES.contains(&token) {
+        // types are green
+        color::Fg(Rgb(0, 255, 0))
+    } else {
+        // rest is white
+        color::Fg(Rgb(255, 255, 255))
+    }
+}
+
+// Write a token using the correct color.
+// If a color is provided, use that color. Otherwise, determine the color based on the token.
+// If the token is in a string, color it magenta. If the token is in a comment, color it green.
+fn write_token(
+    buf: &mut BufWriter<RawTerminal<Stdout>>,
+    token: &str,
+    fg: Option<color::Fg<color::Rgb>>,
+    in_string: bool,
+    in_comment: bool,
+) {
+    let mut color = match fg {
+        Some(f) => f,
+        None => determine_color(token),
+    };
+
+    if in_string {
+        color = color::Fg(Rgb(255, 0, 255));
+    } else if in_comment {
+        color = color::Fg(Rgb(0, 255, 0));
+    }
+
+    write!(buf, "{}{}", color, token).expect(WRITE_ERR_MSG);
+}
+
+// Tokenizes a textrow, preserving whitespace as separate tokens.
+fn tokenize_preserve_whitespace(s: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current_token = String::new();
+    let mut in_whitespace = s.chars().next().map_or(false, |c| c.is_whitespace());
+
+    for c in s.chars() {
+        if c.is_whitespace() {
+            if !in_whitespace {
+                tokens.push(current_token.clone());
+                current_token.clear();
+            }
+            in_whitespace = true;
+        } else {
+            if in_whitespace {
+                tokens.push(current_token.clone());
+                current_token.clear();
+            }
+            in_whitespace = false;
+        }
+        current_token.push(c);
+    }
+
+    if !current_token.is_empty() {
+        tokens.push(current_token);
+    }
+
+    tokens
+}
+
+// Processes a list of tokens, determining the correct color for each token and writing it to the buffer.
+fn process_tokens(
+    buf: &mut BufWriter<RawTerminal<Stdout>>,
+    tokens: Vec<String>,
+    q: &str,
+    file_name: &str,
+    multiline_comment: bool,
+) -> bool {
+    // blue
+    let find_fg = color::Fg(Rgb(0, 0, 255));
+    // in_string and in_comment are used to track whether we've been processing a string or a comment.
+    // (Both strings and comments can span multiple tokens.)
+    let mut in_string = false;
+    let mut in_comment = multiline_comment;
+
+    // Always highlight find results, but only highlight syntax in C files.
+    let should_highlight =
+        file_name.ends_with(".c") || file_name.ends_with(".h") || file_name.ends_with(".cpp");
+
+    // If the first token starts with '//', the line is a comment and should be colored cyan.
+    if !tokens.is_empty() && tokens[0].starts_with("//") {
+        let comment = tokens.join("");
+        write!(buf, "{}", color::Fg(Rgb(0, 255, 255))).expect(WRITE_ERR_MSG);
+        write!(buf, "{} ", comment).expect(WRITE_ERR_MSG);
+        return in_comment;
+    }
+
+    // If the first token starts with '/*', assume a multi-line comment has begun.
+    if !tokens.is_empty() && tokens[0].starts_with("/*") {
+        in_comment = true;
+    }
+
+    for token in &tokens {
+        let magenta_start = token.find('"');
+        let magenta_end = token.rfind('"');
+
+        // Blue highlighting for find query should override all other highlighting.
+        if !q.is_empty() && token.contains(q) {
+            let blue_start = token.find(q).unwrap();
+            let blue_end = blue_start + q.len();
+            let blue_token = &token[blue_start..blue_end];
+            let before_token = &token[..blue_start];
+            let after_token = &token[blue_end..];
+
+            let before_fg = determine_color(before_token);
+            let after_fg = determine_color(after_token);
+
+            write!(buf, "{}{}", before_fg, before_token).expect(WRITE_ERR_MSG);
+            write!(buf, "{}{}", find_fg, blue_token).expect(WRITE_ERR_MSG);
+            write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
+        } else if should_highlight && magenta_start.is_some() && magenta_end.is_some() {
+            if let (Some(start), Some(end)) = (magenta_start, magenta_end) {
+                // A quote appears in this token.
+                if start == end {
+                    // Single quote in the token.
+                    if in_string {
+                        // Ending quote.
+                        let magenta_token = &token[..end + 1];
+                        let after_token = &token[end + 1..];
+
+                        write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                            .expect(WRITE_ERR_MSG);
+                        write!(buf, "{}{}", determine_color(after_token), after_token)
+                            .expect(WRITE_ERR_MSG);
+                        in_string = false;
+                    } else {
+                        // Starting quote.
+                        let before_token = &token[..start];
+                        let magenta_token = &token[start..];
+
+                        write!(buf, "{}{}", determine_color(before_token), before_token)
+                            .expect(WRITE_ERR_MSG);
+                        write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                            .expect(WRITE_ERR_MSG);
+                        in_string = true;
+                    }
+                } else {
+                    // Two quotes in the token.
+                    let before_token = &token[..start];
+                    let magenta_token = &token[start..end + 1];
+                    let after_token = &token[end + 1..];
+
+                    write!(buf, "{}{}", determine_color(before_token), before_token)
+                        .expect(WRITE_ERR_MSG);
+                    write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                        .expect(WRITE_ERR_MSG);
+                    write!(buf, "{}{}", determine_color(after_token), after_token)
+                        .expect(WRITE_ERR_MSG);
+                }
+            }
+        } else {
+            // Syntax highlighting is only enabled for C files.
+            let fg = if should_highlight
+            {
+                // Determine fg via determine_color later
+                None
+            } else {
+                // white
+                Some(color::Fg(Rgb(255, 255, 255)))
+            };
+
+            write_token(buf, token, fg, in_string, in_comment);
+        }
+
+        // If the token contains '*/', assume a multi-line comment has ended.
+        if token.contains("*/") {
+            in_comment = false;
+        }
+    }
+
+    // Return whether we're rendering a multi-line comment, so the next line can continue it if necessary.
+    in_comment
+}
+
+// CONSTS //
+
+// Const strings for error messages and help messages.
+const WRITE_ERR_MSG: &str = "Failed to write to console.";
+const KEYBIND_HELP_MSG: &str = "HELP: Ctrl+Q - exit | Ctrl+S - save | Ctrl+F - find";
+const SAVE_SUCCESS_MSG: &str = "Wrote file to disk.";
+const SAVE_ABORT_MSG: &str = "Save aborted.";
+
+// Const lists for syntax highlighting.
+const C_KEYWORDS: &[&str] = &[
+    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union",
+    "typedef", "static", "enum", "class", "case",
+];
+const C_TYPES: &[&str] = &[
+    "int", "long", "double", "float", "char", "unsigned", "signed", "void", "#include",
+];

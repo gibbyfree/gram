@@ -51,7 +51,7 @@ impl CursorState {
 pub struct StatusMessage {
     pub content: String,
     pub last_sent: Option<Instant>,
-    immortal: bool,
+    pub immortal: bool,
 }
 
 impl StatusMessage {
@@ -137,13 +137,13 @@ impl DirtyStatus {
 #[derive(Copy, Clone)]
 pub struct SearchItem {
     pub cx: i16,
-    pub cy: i16
+    pub cy: i16,
 }
 
 impl SearchItem {
     pub fn new(cx: usize, cy: usize) -> Self {
         Self {
-            cx: cx as i16, 
+            cx: cx as i16,
             cy: cy as i16,
         }
     }

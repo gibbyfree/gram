@@ -1,8 +1,8 @@
 use crate::{
     backend::{cursor::CursorHandler, operations::OperationsHandler},
     data::{
-        enums::{Direction, PromptResult, WriteMode, InputEvent},
-        payload::{SearchItem},
+        enums::{Direction, InputEvent, PromptResult, WriteMode},
+        payload::SearchItem,
         textrow::TextRow,
     },
     gfx::render::RenderDriver,
@@ -61,7 +61,18 @@ impl RenderController {
             }
             (Direction::Left, WriteMode::Prompt) => self.operations.process_prompt_cursor(-1),
             (Direction::Right, WriteMode::Prompt) => self.operations.process_prompt_cursor(1),
-            _ => (),
+            (Direction::Up, WriteMode::Prompt) => {
+                // Check last search result, if it exists
+                let idx = self.operations.update_prompt_match_idx(-1);
+                let i = self.operations.prompt_matches[idx];
+                self.update_prompt_match_cursor(&i);
+            }
+            (Direction::Down, WriteMode::Prompt) => {
+                // Check next search result, if it exists
+                let idx = self.operations.update_prompt_match_idx(1);
+                let i = self.operations.prompt_matches[idx];
+                self.update_prompt_match_cursor(&i);
+            }
         }
         self.operations.update_cursor_state(self.cursor.get_state());
     }
@@ -106,24 +117,19 @@ impl RenderController {
             }
             ('\n', WriteMode::Prompt) | ('\t', WriteMode::Prompt) => {
                 let res = self.operations.process_prompt_confirm();
-                if let Some(pr) = res {
-                    if let PromptResult::FileRename(str) = pr {
-                        self.file_name = str;
-                        self.write_file();
-                        self.mode = WriteMode::Editor;
-                    }
+                if let Some(PromptResult::FileRename(str)) = res {
+                    self.file_name = str;
+                    self.write_file();
+                    self.mode = WriteMode::Editor;
                 }
             }
             (_, WriteMode::Prompt) => {
                 let res = self.operations.process_prompt(c);
-                if let Some(pr) = res {
-                    if let PromptResult::TextSearch(str) = pr {
-                        let results = self.operations.search_text(&str);
-                        let item = results.get(0);
-                        if let Some(i) = item {
-                            self.cursor.handle_cursor(false, i.cy, self.operations.get_text());
-                            self.cursor.handle_cursor(true, i.cx, self.operations.get_text());
-                        }
+                if let Some(PromptResult::TextSearch(str)) = res {
+                    let results = self.operations.search_text(&str);
+                    let item = results.first();
+                    if let Some(i) = item {
+                        self.update_prompt_match_cursor(i);
                     }
                 }
             }
@@ -164,10 +170,36 @@ impl RenderController {
                 // and the operations handler is probably better suited to process this for now.
                 self.operations.process_delete(self.cursor.get_state(), d);
             }
-            (Direction::Left, WriteMode::Prompt) => self.operations.process_prompt_delete(true),
-            (Direction::Right, WriteMode::Prompt) => self.operations.process_prompt_delete(false),
+            (Direction::Left, WriteMode::Prompt) => {
+                let res = self.operations.process_prompt_delete(true);
+                if let Some(PromptResult::TextSearch(str)) = res {
+                    let results = self.operations.search_text(&str);
+                    let item = results.first();
+                    if let Some(i) = item {
+                        self.update_prompt_match_cursor(i);
+                    }
+                }
+            }
+            (Direction::Right, WriteMode::Prompt) => {
+                let res = self.operations.process_prompt_delete(false);
+                if let Some(PromptResult::TextSearch(str)) = res {
+                    let results = self.operations.search_text(&str);
+                    let item = results.first();
+                    if let Some(i) = item {
+                        self.update_prompt_match_cursor(i);
+                    }
+                }
+            }
             _ => (),
         }
+    }
+
+    fn update_prompt_match_cursor(&mut self, res: &SearchItem) {
+        self.cursor
+            .handle_cursor(false, res.cy, self.operations.get_text());
+        self.cursor
+            .handle_cursor(true, res.cx, self.operations.get_text());
+        self.operations.update_cursor_state(self.cursor.get_state());
     }
 
     // Read the contents of a file at a given path, line-by-line.
@@ -181,7 +213,7 @@ impl RenderController {
         for line in buf.lines() {
             vec.push(line.unwrap());
         }
-        let ctrl_cpy = s.clone();
+        let ctrl_cpy = s;
         self.operations.set_file_name(s);
         self.file_name = ctrl_cpy.to_string();
 
@@ -207,6 +239,7 @@ impl RenderController {
         if !matches!(self.mode, WriteMode::Prompt) {
             self.mode = WriteMode::Prompt;
             self.operations.initialize_prompt(kind);
+            self.cursor.save_state();
         }
     }
 
@@ -214,6 +247,8 @@ impl RenderController {
     pub fn exit_prompt(&mut self) {
         self.mode = WriteMode::Editor;
         self.operations.wipe_prompt();
+        self.cursor.restore_state();
+        self.operations.update_cursor_state(self.cursor.get_state());
     }
 
     // Parse a vec of strings into a vec of TextRows.
@@ -221,7 +256,7 @@ impl RenderController {
     pub fn queue_text_upload(&mut self, vec: &Vec<String>) {
         let mut output: Vec<TextRow> = Vec::new();
         for text in vec {
-            let str = String::from(text.trim());
+            let str = String::from(text);
             let row = TextRow::new(str);
             output.push(row);
         }
