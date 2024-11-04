@@ -69,7 +69,7 @@ impl RenderDriver {
             .wrapping_sub(self.status_info.len().try_into().unwrap())
             .wrapping_sub((self.cursor.line_num().len()).try_into().unwrap())
         {
-            write!(self.buf, "{}", " ").unwrap();
+            write!(self.buf, " ").unwrap();
         }
 
         write!(self.buf, "{}\r", self.cursor.line_num()).unwrap();
@@ -78,7 +78,7 @@ impl RenderDriver {
     // Draws the status message, which appears below the status bar.
     // Only contains messages to the user for now.
     fn draw_status_message(&mut self) {
-        write!(self.buf, "\n").expect(WRITE_ERR_MSG);
+        writeln!(self.buf).expect(WRITE_ERR_MSG);
         write!(self.buf, "{}", termion::clear::CurrentLine).expect(WRITE_ERR_MSG);
         write!(
             self.buf,
@@ -106,13 +106,12 @@ impl RenderDriver {
     // Uses row and col offset to determine which textrows are rendered, and how.
     // Renders the status bar as the last line, unless there is a status message to print -- in which case we print both. Resets color afterwards.
     fn set_screen(&mut self) {
-        let end: u16;
         let render_message = self.status_message.should_print();
-        if render_message {
-            end = self.rows - 2;
+        let end: u16 = if render_message {
+            self.rows - 2
         } else {
-            end = self.rows - 1;
-        }
+            self.rows - 1
+        };
 
         // black
         let other_fg = color::Fg(Rgb(255, 255, 255));
@@ -133,13 +132,8 @@ impl RenderDriver {
                 } else {
                     ""
                 };
-                multiline_comment = process_tokens(
-                    &mut self.buf,
-                    tokens,
-                    &q,
-                    &self.file_name,
-                    multiline_comment,
-                );
+                multiline_comment =
+                    process_tokens(&mut self.buf, tokens, q, &self.file_name, multiline_comment);
                 writeln!(self.buf, "\r{}", other_fg).expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r{}", other_fg).expect(WRITE_ERR_MSG);
@@ -160,10 +154,10 @@ impl RenderDriver {
         } else if self.file_name.len() > 20 {
             file = self.file_name[..20].to_string();
         } else {
-            file = format!("{}", self.file_name); // i hate this
+            file = self.file_name.to_string(); // i hate this
         }
         if self.mod_status.dirty {
-            file = file + " (modified)";
+            file += " (modified)";
         }
 
         let lines = self.text.len().to_string() + " lines";
@@ -264,7 +258,7 @@ impl RenderDriver {
 
     // Whether or not the user is currently inputting force quits.
     pub fn is_quitting(&mut self) -> bool {
-        return self.mod_status.quit_count > 0;
+        self.mod_status.quit_count > 0
     }
 
     // Saves the file name of the opened file.
@@ -345,7 +339,7 @@ fn write_token(
 ) {
     let mut color = match fg {
         Some(f) => f,
-        None => determine_color(&token),
+        None => determine_color(token),
     };
 
     if in_string {
@@ -439,7 +433,8 @@ fn process_tokens(
 
                     write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
                         .expect(WRITE_ERR_MSG);
-                    write!(buf, "{}{}", determine_color(after_token), after_token).expect(WRITE_ERR_MSG);
+                    write!(buf, "{}{}", determine_color(after_token), after_token)
+                        .expect(WRITE_ERR_MSG);
                     in_string = false;
                 } else {
                     // Starting quote.
@@ -478,7 +473,7 @@ fn process_tokens(
                 Some(color::Fg(Rgb(255, 255, 255)))
             };
 
-            write_token(buf, &token, fg, in_string, in_comment);
+            write_token(buf, token, fg, in_string, in_comment);
         }
 
         // If the token contains '*/', assume a multi-line comment has ended.
@@ -487,20 +482,20 @@ fn process_tokens(
         }
     }
 
-    return in_comment;
+    in_comment
 }
 
 // Const strings for error messages and help messages.
-const WRITE_ERR_MSG: &'static str = "Failed to write to console.";
-const KEYBIND_HELP_MSG: &'static str = "HELP: Ctrl+Q - exit | Ctrl+S - save | Ctrl+F - find";
-const SAVE_SUCCESS_MSG: &'static str = "Wrote file to disk.";
-const SAVE_ABORT_MSG: &'static str = "Save aborted.";
+const WRITE_ERR_MSG: &str = "Failed to write to console.";
+const KEYBIND_HELP_MSG: &str = "HELP: Ctrl+Q - exit | Ctrl+S - save | Ctrl+F - find";
+const SAVE_SUCCESS_MSG: &str = "Wrote file to disk.";
+const SAVE_ABORT_MSG: &str = "Save aborted.";
 
 // Const lists for syntax highlighting.
-const C_KEYWORDS: &'static [&str] = &[
+const C_KEYWORDS: &[&str] = &[
     "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union",
     "typedef", "static", "enum", "class", "case",
 ];
-const C_TYPES: &'static [&str] = &[
+const C_TYPES: &[&str] = &[
     "int", "long", "double", "float", "char", "unsigned", "signed", "void", "#include",
 ];

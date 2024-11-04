@@ -29,11 +29,16 @@ impl TextRow {
     // Take a substring of a TextRow's text, starting at a given index.
     pub fn substring(&mut self, start: i16) -> &mut TextRow {
         let len = self.raw_text.len();
-        self.text = self.raw_text.chars().skip(start.try_into().unwrap()).take(len).collect();
+        self.text = self
+            .raw_text
+            .chars()
+            .skip(start.try_into().unwrap())
+            .take(len)
+            .collect();
         self
     }
 
-    // Returns the length of a TextRow's text, using grapheme clusters. 
+    // Returns the length of a TextRow's text, using grapheme clusters.
     // (This should best represent what a human using a text editor understands to be a character.)
     pub fn length(&self) -> i16 {
         (self.raw_text.graphemes(true).count() as i16) + 1
@@ -41,7 +46,7 @@ impl TextRow {
 
     // Updates the text of a TextRow.
     pub fn update_text(&mut self, text: String) {
-        self.raw_text = text.clone();
+        self.raw_text.clone_from(&text);
         self.text = text;
     }
 
@@ -49,7 +54,8 @@ impl TextRow {
     // I have a feeling there's going to be something wrong with this method, since it's not using a grapheme representation.
     pub fn find_idx_at_substr(&self, substr: &String) -> Vec<(usize, &str)> {
         let substr_len = substr.len();
-        self.raw_text.match_indices(substr)
+        self.raw_text
+            .match_indices(substr)
             .map(|(idx, match_str)| (idx + substr_len, match_str))
             .collect::<Vec<(_, _)>>()
     }

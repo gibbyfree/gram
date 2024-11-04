@@ -61,7 +61,7 @@ impl CursorHandler {
     // x: whether this is a move on the x-axis or not (if not, then y-axis)
     // val: proposed new value for cx/cy
     // data: reference to the RenderDriver's current state of text
-    pub fn handle_cursor(&mut self, x: bool, val: i16, data: &Vec<TextRow>) {
+    pub fn handle_cursor(&mut self, x: bool, val: i16, data: &[TextRow]) {
         if x {
             self.handle_x_move(val, data);
         } else {
@@ -72,7 +72,7 @@ impl CursorHandler {
     // More stripped-down version of handle_cursor, used to handle scroll events.
     // Necessary because the controller is unaware of data size / current lines. unlike CH.
     // Updates its CursorState after all values have been changed.
-    pub fn handle_scroll(&mut self, x: bool, start: bool, data: &Vec<TextRow>) {
+    pub fn handle_scroll(&mut self, x: bool, start: bool, data: &[TextRow]) {
         match (x, start) {
             (true, true) => {
                 self.cx = 0;
@@ -92,22 +92,25 @@ impl CursorHandler {
     // Handle a cursor move along the y-axis, with a proposed cy value and a reference to the RenderDriver's current data.
     // Will also correct cx if we skip from a long line to a shorter one.
     // Updates its CursorState after all values have been changed.
-    fn handle_y_move(&mut self, val: i16, data: &Vec<TextRow>) {
+    fn handle_y_move(&mut self, val: i16, data: &[TextRow]) {
         if val == -1 {
             // moving offscreen to the top
             if self.row_offset > 0 {
                 // any more rows to render?
-                self.row_offset = self.row_offset - 1;
+                self.row_offset -= 1;
             }
         }
         if val == (self.rows - 1).try_into().unwrap() {
             // moving offscreen to the bottom
             if (self.row_offset + self.cy + 1) <= data.len().try_into().unwrap() {
                 // more data to render?
-                self.row_offset = self.row_offset + 1;
+                self.row_offset += 1;
             }
         }
-        if val != -1 && val != (self.rows - 1).try_into().unwrap() && val <= data.len().try_into().unwrap() {
+        if val != -1
+            && val != (self.rows - 1).try_into().unwrap()
+            && val <= data.len().try_into().unwrap()
+        {
             // moving within the document
             self.cy = val;
         }
@@ -118,16 +121,16 @@ impl CursorHandler {
 
     // Handle a cursor move along the x-axis, with a proposed cx value and a reference to the RenderDriver's current data.
     // Updates its CursorState after all values have been changed.
-    fn handle_x_move(&mut self, val: i16, data: &Vec<TextRow>) {
+    fn handle_x_move(&mut self, val: i16, data: &[TextRow]) {
         let mut has_wrapped = false;
         if val == -1 {
             // moving offscreen to the left
             if self.col_offset > 0 {
                 // is there more data to show here?
-                self.col_offset = self.col_offset - 1;
+                self.col_offset -= 1;
             } else if self.cy >= 1 {
                 // is there a line we can wrap to?
-                self.cy = self.cy - 1;
+                self.cy -= 1;
                 self.col_offset = 0;
                 self.wrap_cx_to_end(data);
                 has_wrapped = true;
@@ -137,10 +140,10 @@ impl CursorHandler {
             // offscreen to the right
             if data[self.cy as usize].length() >= val + self.col_offset {
                 // is there more data to show here?
-                self.col_offset = self.col_offset + 1;
+                self.col_offset += 1;
             } else if data.len() + 1 > self.cy.try_into().unwrap() {
                 // is there a line we can wrap to?
-                self.cy = self.cy + 1;
+                self.cy += 1;
                 self.cx = 0;
                 self.col_offset = 0;
                 has_wrapped = true;
@@ -152,7 +155,7 @@ impl CursorHandler {
             // end of line
             if data.len() + 1 > self.cy.try_into().unwrap() {
                 // is there a line we can wrap to?
-                self.cy = self.cy + 1;
+                self.cy += 1;
                 self.cx = 0;
                 self.col_offset = 0;
                 has_wrapped = true;
@@ -175,7 +178,7 @@ impl CursorHandler {
     // Helper method for wrapping cx to the end of the line indexed by the handler's current cy.
     // Sets cx to the very end of this line, adding col_offset if the line is long enough.
     // Doesn't update its CursorState -- this should be done by the calling function.
-    fn wrap_cx_to_end(&mut self, data: &Vec<TextRow>) {
+    fn wrap_cx_to_end(&mut self, data: &[TextRow]) {
         let line_len = data[self.cy as usize].length();
         if line_len > self.rows.try_into().unwrap() {
             self.col_offset = line_len.wrapping_sub(self.rows.try_into().unwrap());
@@ -188,7 +191,7 @@ impl CursorHandler {
     // Helper method for wrapping cy to the end of the document.
     // Doesn't modify cx explicitly, but adjusts in helper function call.
     // Doesn't update its CursorState -- this should be done by the calling function.
-    fn wrap_cy_to_end(&mut self, data: &Vec<TextRow>) {
+    fn wrap_cy_to_end(&mut self, data: &[TextRow]) {
         let data_len: i16 = data.len().try_into().unwrap();
         if data_len > self.rows.try_into().unwrap() {
             self.row_offset = data_len.wrapping_sub(self.rows.try_into().unwrap());
@@ -202,12 +205,12 @@ impl CursorHandler {
     // Corrects cx if needed. Intended to be used as a helper method when there's a chance that cx exceeds the current line.
     // Mostly useful for use after cy is forcibly changed by a wrap or scroll event.
     // Doesn't update its CursorState -- this should be done by the calling function.
-    fn check_and_fix_cx(&mut self, data: &Vec<TextRow>) {
+    fn check_and_fix_cx(&mut self, data: &[TextRow]) {
         if data.len() > self.cy.try_into().unwrap() && self.cx > data[self.cy as usize].length() {
             self.cx = data[self.cy as usize].length();
             self.col_offset = 0;
         }
-        
+
         // if final line in editor
         if data.len() == self.cy.try_into().unwrap() {
             self.cx = 0;

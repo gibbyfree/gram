@@ -4,7 +4,8 @@ use crate::data::{
 };
 use std::{
     fs::{File, OpenOptions},
-    io::{Error, Write}, path::Path,
+    io::{Error, Write},
+    path::Path,
 };
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -39,7 +40,7 @@ impl OperationsHandler {
     // If a textrow does not exist at that index, we assume an empty string is the base of any insertion, and return it.
     fn get_string_at_line(&mut self, idx: usize) -> &String {
         let data: &mut Vec<TextRow> = self.render.get_text();
-        if data.len() <= idx.try_into().unwrap() {
+        if data.len() <= idx {
             data.push(TextRow::new("".to_string()));
         }
         &data[idx].raw_text
@@ -213,14 +214,12 @@ impl OperationsHandler {
     // Sends a PromptResult to the controler, so that it can wrap-up any other processes as needed.
     pub fn process_prompt_confirm(&mut self) -> Option<PromptResult> {
         let status = &self.prompt.status;
-        if let Some(content) = status {
-            if let StatusContent::SaveAs(str) = content {
-                self.file_name = str.to_string();
-                self.render.set_file_name(str);
-                self.render
-                    .update_status_message(StatusContent::SaveSuccess);
-                return Some(PromptResult::FileRename(str.to_string()));
-            }
+        if let Some(StatusContent::SaveAs(str)) = status {
+            self.file_name = str.to_string();
+            self.render.set_file_name(str);
+            self.render
+                .update_status_message(StatusContent::SaveSuccess);
+            return Some(PromptResult::FileRename(str.to_string()));
         }
         None
     }
@@ -230,13 +229,13 @@ impl OperationsHandler {
         let data: &mut Vec<TextRow> = self.render.get_text();
 
         for (i, row) in data.iter().enumerate() {
-            let indices = row.find_idx_at_substr(&query);
+            let indices = row.find_idx_at_substr(query);
             for j in indices {
                 res.push(SearchItem::new(j.0, i));
             }
         }
 
-        self.prompt_matches = res.clone();
+        self.prompt_matches.clone_from(&res);
         res
     }
 
@@ -314,8 +313,7 @@ impl OperationsHandler {
             self.process_prompt_cursor(-1);
         }
 
-        let res = self.check_and_update_prompt_status();
-        res
+        self.check_and_update_prompt_status()
     }
 
     // Writes to a file at a given file name.
@@ -330,7 +328,7 @@ impl OperationsHandler {
 
             for t in data {
                 output.push_str(&t.raw_text);
-                output.push_str("\n");
+                output.push('\n');
             }
 
             let mut f: File;

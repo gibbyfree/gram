@@ -73,7 +73,6 @@ impl RenderController {
                 let i = self.operations.prompt_matches[idx];
                 self.update_prompt_match_cursor(&i);
             }
-            _ => (),
         }
         self.operations.update_cursor_state(self.cursor.get_state());
     }
@@ -118,23 +117,19 @@ impl RenderController {
             }
             ('\n', WriteMode::Prompt) | ('\t', WriteMode::Prompt) => {
                 let res = self.operations.process_prompt_confirm();
-                if let Some(pr) = res {
-                    if let PromptResult::FileRename(str) = pr {
-                        self.file_name = str;
-                        self.write_file();
-                        self.mode = WriteMode::Editor;
-                    }
+                if let Some(PromptResult::FileRename(str)) = res {
+                    self.file_name = str;
+                    self.write_file();
+                    self.mode = WriteMode::Editor;
                 }
             }
             (_, WriteMode::Prompt) => {
                 let res = self.operations.process_prompt(c);
-                if let Some(pr) = res {
-                    if let PromptResult::TextSearch(str) = pr {
-                        let results = self.operations.search_text(&str);
-                        let item = results.get(0);
-                        if let Some(i) = item {
-                            self.update_prompt_match_cursor(i);
-                        }
+                if let Some(PromptResult::TextSearch(str)) = res {
+                    let results = self.operations.search_text(&str);
+                    let item = results.first();
+                    if let Some(i) = item {
+                        self.update_prompt_match_cursor(i);
                     }
                 }
             }
@@ -177,25 +172,21 @@ impl RenderController {
             }
             (Direction::Left, WriteMode::Prompt) => {
                 let res = self.operations.process_prompt_delete(true);
-                if let Some(pr) = res {
-                    if let PromptResult::TextSearch(str) = pr {
-                        let results = self.operations.search_text(&str);
-                        let item = results.get(0);
-                        if let Some(i) = item {
-                            self.update_prompt_match_cursor(i);
-                        }
+                if let Some(PromptResult::TextSearch(str)) = res {
+                    let results = self.operations.search_text(&str);
+                    let item = results.first();
+                    if let Some(i) = item {
+                        self.update_prompt_match_cursor(i);
                     }
                 }
             }
             (Direction::Right, WriteMode::Prompt) => {
                 let res = self.operations.process_prompt_delete(false);
-                if let Some(pr) = res {
-                    if let PromptResult::TextSearch(str) = pr {
-                        let results = self.operations.search_text(&str);
-                        let item = results.get(0);
-                        if let Some(i) = item {
-                            self.update_prompt_match_cursor(i);
-                        }
+                if let Some(PromptResult::TextSearch(str)) = res {
+                    let results = self.operations.search_text(&str);
+                    let item = results.first();
+                    if let Some(i) = item {
+                        self.update_prompt_match_cursor(i);
                     }
                 }
             }
@@ -222,7 +213,7 @@ impl RenderController {
         for line in buf.lines() {
             vec.push(line.unwrap());
         }
-        let ctrl_cpy = s.clone();
+        let ctrl_cpy = s;
         self.operations.set_file_name(s);
         self.file_name = ctrl_cpy.to_string();
 
