@@ -5,6 +5,8 @@ Gram is a Rust-based implementation of [kilo](https://github.com/antirez/kilo), 
 Usage: `./gram <filename>` 
 Example: `./gram sample.c`
 
+Build for your target with `cargo run` or `cargo build`.
+
 Keyboard shortcuts:
 ```
 CTRL-S: Save
