@@ -479,22 +479,12 @@ fn process_tokens(
             };
 
             write_token(buf, &token, fg, in_string, in_comment);
-
-            // If we just wrote the end of a string, reset the in_string flag
-            if token.ends_with('"')
-                || token.ends_with('\'')
-                || token.ends_with("\";")
-                || token.ends_with("';")
-                || token.ends_with("\")")
-            {
-                in_string = false;
-            }
         }
-    }
 
-    // If the last token ends with '*/', assume a multi-line comment has ended.
-    if !tokens.is_empty() && tokens[tokens.len() - 1].ends_with("*/") {
-        in_comment = false;
+        // If the token contains '*/', assume a multi-line comment has ended.
+        if token.contains("*/") {
+            in_comment = false;
+        }
     }
 
     return in_comment;
