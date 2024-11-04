@@ -412,9 +412,9 @@ fn process_tokens(
     }
 
     for token in &tokens {
-        let magenta_start = token.find('"').unwrap();
-        let magenta_end = token.rfind('"').unwrap() + 1;
-        
+        let magenta_start = token.find('"');
+        let magenta_end = token.rfind('"');
+
         if !q.is_empty() && token.contains(q) {
             let blue_start = token.find(q).unwrap();
             let blue_end = blue_start + q.len();
@@ -428,58 +428,35 @@ fn process_tokens(
             write!(buf, "{}{}", before_fg, before_token).expect(WRITE_ERR_MSG);
             write!(buf, "{}{}", find_fg, blue_token).expect(WRITE_ERR_MSG);
             write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
-        } else if (token.starts_with('"') || token.starts_with('\'')) && !token.ends_with(';') {
-            // Token directly attached to a starting quote. Color the entire token magenta.
-            write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), token).expect(WRITE_ERR_MSG);
-            in_string = true;
-        } else if token.ends_with('"')
-            || token.ends_with('\'')
-            || token.ends_with("\";")
-            || token.ends_with("\");")
-            || token.ends_with("';")
-            || token.ends_with("\",")
-        {
-            // Token directly attached to an ending quote. Color the token magenta up to the quote.
-            let magenta_end = token.rfind('"').unwrap() + 1;
-            let magenta_token = &token[..magenta_end];
-            let after_token = &token[magenta_end..];
-            let after_fg = determine_color(after_token);
+        } else if let (Some(start), Some(end)) = (magenta_start, magenta_end) {
+            // A quote appears in this token.
+            if start == end {
+                // Single quote in the token.
+                if in_string {
+                    // Ending quote.
+                    let magenta_token = &token[..end + 1];
+                    let after_token = &token[end + 1..];
 
-            write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token).expect(WRITE_ERR_MSG);
-            write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
-            in_string = false;
-        } else if token.contains('"') || token.contains('\'') {
-            // This is a string part.
-            let magenta_start = token.find('"').unwrap();
-            let magenta_end = token.rfind('"').unwrap() + 1;
-
-            // There is only one quote in the token.
-            if magenta_start + 1 == magenta_end {
-                if !in_string {
-                    // Magenta from quote to end of token
-                    let before_token = &token[..magenta_start];
-                    let magenta_token = &token[magenta_start..];
-                    let before_fg = determine_color(before_token);
-
-                    write!(buf, "{}{}", before_fg, before_token).expect(WRITE_ERR_MSG);
                     write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
                         .expect(WRITE_ERR_MSG);
-
-                    in_string = true;
-                } else {
-                    // Magenta from start of token to quote
-                    let magenta_token = &token[..magenta_end];
-                    let after_token = &token[magenta_end..];
-                    write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
-                        .expect(WRITE_ERR_MSG);
-                    write!(buf, "{}", determine_color(after_token)).expect(WRITE_ERR_MSG);
-
+                    write!(buf, "{}{}", determine_color(after_token), after_token).expect(WRITE_ERR_MSG);
                     in_string = false;
+                } else {
+                    // Starting quote.
+                    let before_token = &token[..start];
+                    let magenta_token = &token[start..];
+
+                    write!(buf, "{}{}", determine_color(before_token), before_token)
+                        .expect(WRITE_ERR_MSG);
+                    write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                        .expect(WRITE_ERR_MSG);
+                    in_string = true;
                 }
             } else {
-                let before_token = &token[..magenta_start];
-                let magenta_token = &token[magenta_start..magenta_end];
-                let after_token = &token[magenta_end..];
+                // Two quotes in the token.
+                let before_token = &token[..start];
+                let magenta_token = &token[start..end + 1];
+                let after_token = &token[end + 1..];
 
                 write!(buf, "{}{}", determine_color(before_token), before_token)
                     .expect(WRITE_ERR_MSG);
