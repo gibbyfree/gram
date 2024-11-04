@@ -116,6 +116,7 @@ impl RenderDriver {
 
         // black
         let other_fg = color::Fg(Rgb(255, 255, 255));
+        let mut multiline_comment = false;
 
         for n in 0..end {
             // clear the current line
@@ -132,7 +133,13 @@ impl RenderDriver {
                 } else {
                     ""
                 };
-                process_tokens(&mut self.buf, tokens, &q, &self.file_name);
+                multiline_comment = process_tokens(
+                    &mut self.buf,
+                    tokens,
+                    &q,
+                    &self.file_name,
+                    multiline_comment,
+                );
                 writeln!(self.buf, "\r{}", other_fg).expect(WRITE_ERR_MSG);
             } else {
                 writeln!(self.buf, "~\r{}", other_fg).expect(WRITE_ERR_MSG);
@@ -320,6 +327,9 @@ fn determine_color(token: &str) -> color::Fg<color::Rgb> {
     } else if C_KEYWORDS.contains(&token) {
         // keywords are yellow
         color::Fg(Rgb(255, 255, 0))
+    } else if C_TYPES.contains(&token) {
+        // types are green
+        color::Fg(Rgb(0, 255, 0))
     } else {
         // rest is white
         color::Fg(Rgb(255, 255, 255))
@@ -331,6 +341,7 @@ fn write_token(
     token: &str,
     fg: Option<color::Fg<color::Rgb>>,
     in_string: bool,
+    in_comment: bool,
 ) {
     let mut color = match fg {
         Some(f) => f,
@@ -339,6 +350,8 @@ fn write_token(
 
     if in_string {
         color = color::Fg(Rgb(255, 0, 255));
+    } else if in_comment {
+        color = color::Fg(Rgb(0, 255, 0));
     }
 
     write!(buf, "{}{}", color, token).expect(WRITE_ERR_MSG);
@@ -378,21 +391,30 @@ fn process_tokens(
     tokens: Vec<String>,
     q: &str,
     file_name: &str,
-) {
+    multiline_comment: bool,
+) -> bool {
     // blue
     let find_fg = color::Fg(Rgb(0, 0, 255));
     let mut in_string = false;
+    let mut in_comment = multiline_comment;
 
     // If the first token starts with '//', the line is a comment and should be colored cyan.
     if !tokens.is_empty() && tokens[0].starts_with("//") {
-        for token in tokens {
-            write!(buf, "{}", color::Fg(Rgb(0, 255, 255))).expect(WRITE_ERR_MSG);
-            write!(buf, "{} ", token).expect(WRITE_ERR_MSG);
-        }
-        return;
+        let comment = tokens.join("");
+        write!(buf, "{}", color::Fg(Rgb(0, 255, 255))).expect(WRITE_ERR_MSG);
+        write!(buf, "{} ", comment).expect(WRITE_ERR_MSG);
+        return in_comment;
     }
 
-    for token in tokens {
+    // If the first token starts with '/*', assume a multi-line comment has begun.
+    if !tokens.is_empty() && tokens[0].starts_with("/*") {
+        in_comment = true;
+    }
+
+    for token in &tokens {
+        let magenta_start = token.find('"').unwrap();
+        let magenta_end = token.rfind('"').unwrap() + 1;
+        
         if !q.is_empty() && token.contains(q) {
             let blue_start = token.find(q).unwrap();
             let blue_end = blue_start + q.len();
@@ -406,6 +428,66 @@ fn process_tokens(
             write!(buf, "{}{}", before_fg, before_token).expect(WRITE_ERR_MSG);
             write!(buf, "{}{}", find_fg, blue_token).expect(WRITE_ERR_MSG);
             write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
+        } else if (token.starts_with('"') || token.starts_with('\'')) && !token.ends_with(';') {
+            // Token directly attached to a starting quote. Color the entire token magenta.
+            write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), token).expect(WRITE_ERR_MSG);
+            in_string = true;
+        } else if token.ends_with('"')
+            || token.ends_with('\'')
+            || token.ends_with("\";")
+            || token.ends_with("\");")
+            || token.ends_with("';")
+            || token.ends_with("\",")
+        {
+            // Token directly attached to an ending quote. Color the token magenta up to the quote.
+            let magenta_end = token.rfind('"').unwrap() + 1;
+            let magenta_token = &token[..magenta_end];
+            let after_token = &token[magenta_end..];
+            let after_fg = determine_color(after_token);
+
+            write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token).expect(WRITE_ERR_MSG);
+            write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
+            in_string = false;
+        } else if token.contains('"') || token.contains('\'') {
+            // This is a string part.
+            let magenta_start = token.find('"').unwrap();
+            let magenta_end = token.rfind('"').unwrap() + 1;
+
+            // There is only one quote in the token.
+            if magenta_start + 1 == magenta_end {
+                if !in_string {
+                    // Magenta from quote to end of token
+                    let before_token = &token[..magenta_start];
+                    let magenta_token = &token[magenta_start..];
+                    let before_fg = determine_color(before_token);
+
+                    write!(buf, "{}{}", before_fg, before_token).expect(WRITE_ERR_MSG);
+                    write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                        .expect(WRITE_ERR_MSG);
+
+                    in_string = true;
+                } else {
+                    // Magenta from start of token to quote
+                    let magenta_token = &token[..magenta_end];
+                    let after_token = &token[magenta_end..];
+                    write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                        .expect(WRITE_ERR_MSG);
+                    write!(buf, "{}", determine_color(after_token)).expect(WRITE_ERR_MSG);
+
+                    in_string = false;
+                }
+            } else {
+                let before_token = &token[..magenta_start];
+                let magenta_token = &token[magenta_start..magenta_end];
+                let after_token = &token[magenta_end..];
+
+                write!(buf, "{}{}", determine_color(before_token), before_token)
+                    .expect(WRITE_ERR_MSG);
+                write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                    .expect(WRITE_ERR_MSG);
+                write!(buf, "{}{}", determine_color(after_token), after_token)
+                    .expect(WRITE_ERR_MSG);
+            }
         } else {
             // Syntax highlighting is only enabled for C files.
             let fg = if file_name.ends_with(".c")
@@ -419,19 +501,26 @@ fn process_tokens(
                 Some(color::Fg(Rgb(255, 255, 255)))
             };
 
-            // Assume this is the beginning of a string
-            if token.starts_with('"') || token.starts_with('\'') {
-                in_string = true;
-            }
-
-            write_token(buf, &token, fg, in_string);
+            write_token(buf, &token, fg, in_string, in_comment);
 
             // If we just wrote the end of a string, reset the in_string flag
-            if token.ends_with('"') || token.ends_with('\'') {
+            if token.ends_with('"')
+                || token.ends_with('\'')
+                || token.ends_with("\";")
+                || token.ends_with("';")
+                || token.ends_with("\")")
+            {
                 in_string = false;
             }
         }
     }
+
+    // If the last token ends with '*/', assume a multi-line comment has ended.
+    if !tokens.is_empty() && tokens[tokens.len() - 1].ends_with("*/") {
+        in_comment = false;
+    }
+
+    return in_comment;
 }
 
 // Const strings for error messages and help messages.
@@ -444,4 +533,7 @@ const SAVE_ABORT_MSG: &'static str = "Save aborted.";
 const C_KEYWORDS: &'static [&str] = &[
     "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union",
     "typedef", "static", "enum", "class", "case",
+];
+const C_TYPES: &'static [&str] = &[
+    "int", "long", "double", "float", "char", "unsigned", "signed", "void", "#include",
 ];
