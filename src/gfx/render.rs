@@ -103,7 +103,7 @@ impl RenderDriver {
 
     // Sets the screen for this current tick.
     // Iterates through all rows of the window, clearing its old contents and replacing with either rendered text or a blank line.
-    // Uses row and col offset to determine which textrows are rendered, and how.
+    // Uses row and col offset to determine which textrows are rendered, and how - calls into process_tokens to render and color text.
     // Renders the status bar as the last line, unless there is a status message to print -- in which case we print both. Resets color afterwards.
     fn set_screen(&mut self) {
         let render_message = self.status_message.should_print();
@@ -127,6 +127,8 @@ impl RenderDriver {
                     .substring(self.cursor.col_offset)
                     .truncate(self.cols);
                 let tokens: Vec<String> = tokenize_preserve_whitespace(&render_str.raw_text);
+
+                // If we're in a find state, we need to highlight the search query.
                 let q = if let StatusContent::Find(q) = &self.status_kind {
                     q
                 } else {
@@ -314,6 +316,9 @@ impl RenderDriver {
     // END OF PUBLIC METHODS //
 }
 
+// SYNTAX HIGHLIGHTING //
+
+// Determines the correct color for a token given its content.
 fn determine_color(token: &str) -> color::Fg<color::Rgb> {
     if token.parse::<f64>().is_ok() {
         // digits are red
@@ -330,6 +335,9 @@ fn determine_color(token: &str) -> color::Fg<color::Rgb> {
     }
 }
 
+// Write a token using the correct color.
+// If a color is provided, use that color. Otherwise, determine the color based on the token.
+// If the token is in a string, color it magenta. If the token is in a comment, color it green.
 fn write_token(
     buf: &mut BufWriter<RawTerminal<Stdout>>,
     token: &str,
@@ -351,6 +359,7 @@ fn write_token(
     write!(buf, "{}{}", color, token).expect(WRITE_ERR_MSG);
 }
 
+// Tokenizes a textrow, preserving whitespace as separate tokens.
 fn tokenize_preserve_whitespace(s: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut current_token = String::new();
@@ -380,6 +389,7 @@ fn tokenize_preserve_whitespace(s: &str) -> Vec<String> {
     tokens
 }
 
+// Processes a list of tokens, determining the correct color for each token and writing it to the buffer.
 fn process_tokens(
     buf: &mut BufWriter<RawTerminal<Stdout>>,
     tokens: Vec<String>,
@@ -389,8 +399,14 @@ fn process_tokens(
 ) -> bool {
     // blue
     let find_fg = color::Fg(Rgb(0, 0, 255));
+    // in_string and in_comment are used to track whether we've been processing a string or a comment.
+    // (Both strings and comments can span multiple tokens.)
     let mut in_string = false;
     let mut in_comment = multiline_comment;
+
+    // Always highlight find results, but only highlight syntax in C files.
+    let should_highlight =
+        file_name.ends_with(".c") || file_name.ends_with(".h") || file_name.ends_with(".cpp");
 
     // If the first token starts with '//', the line is a comment and should be colored cyan.
     if !tokens.is_empty() && tokens[0].starts_with("//") {
@@ -409,6 +425,7 @@ fn process_tokens(
         let magenta_start = token.find('"');
         let magenta_end = token.rfind('"');
 
+        // Blue highlighting for find query should override all other highlighting.
         if !q.is_empty() && token.contains(q) {
             let blue_start = token.find(q).unwrap();
             let blue_end = blue_start + q.len();
@@ -422,49 +439,49 @@ fn process_tokens(
             write!(buf, "{}{}", before_fg, before_token).expect(WRITE_ERR_MSG);
             write!(buf, "{}{}", find_fg, blue_token).expect(WRITE_ERR_MSG);
             write!(buf, "{}{}", after_fg, after_token).expect(WRITE_ERR_MSG);
-        } else if let (Some(start), Some(end)) = (magenta_start, magenta_end) {
-            // A quote appears in this token.
-            if start == end {
-                // Single quote in the token.
-                if in_string {
-                    // Ending quote.
-                    let magenta_token = &token[..end + 1];
-                    let after_token = &token[end + 1..];
+        } else if should_highlight && magenta_start.is_some() && magenta_end.is_some() {
+            if let (Some(start), Some(end)) = (magenta_start, magenta_end) {
+                // A quote appears in this token.
+                if start == end {
+                    // Single quote in the token.
+                    if in_string {
+                        // Ending quote.
+                        let magenta_token = &token[..end + 1];
+                        let after_token = &token[end + 1..];
 
-                    write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
-                        .expect(WRITE_ERR_MSG);
-                    write!(buf, "{}{}", determine_color(after_token), after_token)
-                        .expect(WRITE_ERR_MSG);
-                    in_string = false;
+                        write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                            .expect(WRITE_ERR_MSG);
+                        write!(buf, "{}{}", determine_color(after_token), after_token)
+                            .expect(WRITE_ERR_MSG);
+                        in_string = false;
+                    } else {
+                        // Starting quote.
+                        let before_token = &token[..start];
+                        let magenta_token = &token[start..];
+
+                        write!(buf, "{}{}", determine_color(before_token), before_token)
+                            .expect(WRITE_ERR_MSG);
+                        write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
+                            .expect(WRITE_ERR_MSG);
+                        in_string = true;
+                    }
                 } else {
-                    // Starting quote.
+                    // Two quotes in the token.
                     let before_token = &token[..start];
-                    let magenta_token = &token[start..];
+                    let magenta_token = &token[start..end + 1];
+                    let after_token = &token[end + 1..];
 
                     write!(buf, "{}{}", determine_color(before_token), before_token)
                         .expect(WRITE_ERR_MSG);
                     write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
                         .expect(WRITE_ERR_MSG);
-                    in_string = true;
+                    write!(buf, "{}{}", determine_color(after_token), after_token)
+                        .expect(WRITE_ERR_MSG);
                 }
-            } else {
-                // Two quotes in the token.
-                let before_token = &token[..start];
-                let magenta_token = &token[start..end + 1];
-                let after_token = &token[end + 1..];
-
-                write!(buf, "{}{}", determine_color(before_token), before_token)
-                    .expect(WRITE_ERR_MSG);
-                write!(buf, "{}{}", color::Fg(Rgb(255, 0, 255)), magenta_token)
-                    .expect(WRITE_ERR_MSG);
-                write!(buf, "{}{}", determine_color(after_token), after_token)
-                    .expect(WRITE_ERR_MSG);
             }
         } else {
             // Syntax highlighting is only enabled for C files.
-            let fg = if file_name.ends_with(".c")
-                || file_name.ends_with(".h")
-                || file_name.ends_with(".cpp")
+            let fg = if should_highlight
             {
                 // Determine fg via determine_color later
                 None
@@ -482,8 +499,11 @@ fn process_tokens(
         }
     }
 
+    // Return whether we're rendering a multi-line comment, so the next line can continue it if necessary.
     in_comment
 }
+
+// CONSTS //
 
 // Const strings for error messages and help messages.
 const WRITE_ERR_MSG: &str = "Failed to write to console.";
